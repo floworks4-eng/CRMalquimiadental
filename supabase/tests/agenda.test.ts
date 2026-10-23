@@ -37,6 +37,8 @@ const status = (actor: Actor, id: string, to: string, reason: string | null = nu
   as(db, actor, (tx) => tx.query('select public.change_appointment_status($1, $2, $3, $4)', [id, to, reason, expected]))
 const reschedule = (actor: Actor, id: string, start: string, opts: { cabinet?: string; dentist?: string; expected?: string } = {}) =>
   as(db, actor, (tx) => tx.query('select public.reschedule_appointment($1, $2, $3, $4, $5)', [id, start, opts.cabinet ?? null, opts.dentist ?? null, opts.expected ?? null]))
+// now() de PGlite tiene resolucion de milisegundos: sin esta pausa dos escrituras seguidas pueden dejar el mismo updated_at.
+const tick = () => db.query('select pg_sleep(0.02)')
 const one = async (sql: string, params: unknown[] = []) => (await db.query<Record<string, unknown>>(sql, params)).rows[0]
 
 beforeAll(async () => {
@@ -225,6 +227,7 @@ describe('reschedule_appointment', () => {
     const d = await day(2)
     const id = await create(reception, { patient: P(5), dentist: ID.dentistB, cabinet: B3, start: at(d, '09:00') })
     const v1 = (await one(`select updated_at::text as u from public.appointments where id = $1`, [id])).u as string
+    await tick()
     await reschedule(reception, id, at(d, '09:30'), { expected: v1 })
     expect((await one(`select to_char(starts_at at time zone '${TZ}', 'HH24:MI') as h from public.appointments where id = $1`, [id])).h).toBe('09:30')
     expect((await db.query<{ reason: string | null }>(`select reason from public.appointment_events where appointment_id = $1 order by at`, [id])).rows.map((r) => r.reason)).toContain('rescheduled')
@@ -310,6 +313,7 @@ describe('change_appointment_status', () => {
   it('version vieja: CONFLICT', async () => {
     const id = await fresh(4, '16:30', P(9))
     const v1 = (await one(`select updated_at::text as u from public.appointments where id = $1`, [id])).u as string
+    await tick()
     await status(reception, id, 'confirmed')
     await expect(status(reception, id, 'checked_in', null, v1)).rejects.toThrow('CONFLICT')
   })
