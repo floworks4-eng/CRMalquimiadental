@@ -17,7 +17,13 @@ export default defineConfig({
   webServer: {
     command: `npx next dev -p ${PORT}`,
     url: `http://localhost:${PORT}/api/health`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false, // siempre arranca con el entorno de abajo
+    env: {
+      // Valores de relleno: estas pruebas no llegan a la red. Las de flujo completo (login real) requieren Supabase local.
+      NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'e2e-placeholder-anon-key',
+      NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`,
+    },
     timeout: 120_000,
   },
 })

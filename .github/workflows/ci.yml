@@ -20,4 +20,18 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
-# Sprint 1 (F1-022) agrega: supabase db reset, db lint, tests RLS y e2e.
+      - run: npm run test:e2e
+
+  # Verifica las migraciones contra Supabase real (el resto de pruebas RLS corren en PGlite dentro de `npm test`).
+  # OJO: este job no se ha ejecutado todavia (no hay Docker en el equipo de desarrollo); revisarlo en el primer PR.
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start
+      - run: supabase db reset
+      - run: supabase db lint --level error
