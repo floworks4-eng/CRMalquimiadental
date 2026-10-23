@@ -25,8 +25,10 @@ function Recepcion() {
   useEffect(() => {
     if (!id) return
     const u = `${window.location.origin}/check-in?cita=${id}`
-    setUrl(u)
-    QRCode.toString(u, { type: 'svg', margin: 1, color: { dark: '#1e1f21', light: '#f2eee6' } }).then(setSvg)
+    QRCode.toString(u, { type: 'svg', margin: 1, color: { dark: '#1e1f21', light: '#f2eee6' } }).then((s) => {
+      setSvg(s)
+      setUrl(u)
+    })
   }, [id])
 
   const checkedIn = a && ['en_espera', 'en_atencion'].includes(a.status)

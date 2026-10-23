@@ -3,7 +3,7 @@ import { Suspense, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CheckCircle2, MapPin, Clock, Sparkles, Stethoscope, Smile, Baby, Activity, Gem, ArrowLeft } from 'lucide-react'
 import {
-  useDB, useHydrated, createAppointment, findConflict, todayISO, addDays, fecha, nowHM, toHM, toMin, byId, CLINIC, type Source,
+  useDB, useHydrated, createAppointment, findConflict, todayISO, addDays, fecha, nowHM, toHM, byId, CLINIC, type Source,
 } from '@/lib/data'
 import { Field, Wordmark } from '@/components/ui'
 import { PHONE_RE } from '@/components/appointment-modal'

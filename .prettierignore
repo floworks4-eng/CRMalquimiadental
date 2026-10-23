@@ -1,0 +1,5 @@
+.next
+package-lock.json
+supabase/config.toml
+playwright-report
+test-results

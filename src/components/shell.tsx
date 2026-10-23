@@ -45,7 +45,6 @@ export function Shell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (hydrated && !db.session) router.replace('/')
   }, [hydrated, db.session, router])
-  useEffect(() => setMore(false), [path])
 
   if (!hydrated || !role || !user) return <div className="min-h-dvh" aria-busy="true" />
 
@@ -130,11 +129,11 @@ export function Shell({ children }: { children: ReactNode }) {
       <Modal open={more} onClose={() => setMore(false)} title="Más módulos">
         <div className="grid grid-cols-2 gap-2">
           {items.filter((i) => !primary.includes(i)).map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href} className="glass flex items-center gap-2 px-3 py-3 text-sm"><Icon size={18} className="text-gold" aria-hidden />{label}</Link>
+            <Link key={href} href={href} onClick={() => setMore(false)} className="glass flex items-center gap-2 px-3 py-3 text-sm"><Icon size={18} className="text-gold" aria-hidden />{label}</Link>
           ))}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Link href="/" className="btn btn-secondary text-xs"><Repeat size={14} aria-hidden />Cambiar rol</Link>
+          <Link href="/" onClick={() => setMore(false)} className="btn btn-secondary text-xs"><Repeat size={14} aria-hidden />Cambiar rol</Link>
           <button className="btn btn-ghost text-xs" onClick={() => { setMore(false); setConfirmReset(true) }}><RotateCcw size={14} aria-hidden />Reiniciar demo</button>
         </div>
       </Modal>

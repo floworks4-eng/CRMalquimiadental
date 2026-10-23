@@ -71,7 +71,6 @@ export default function WhatsApp() {
   const db = useDB()
   const [chat, setChat] = useState(CHATS[0])
   const [shown, setShown] = useState(1)
-  const [typing, setTyping] = useState(false)
   const [playing, setPlaying] = useState(false)
   const [human, setHuman] = useState(false)
   const [extra, setExtra] = useState<Msg[]>([])
@@ -79,6 +78,8 @@ export default function WhatsApp() {
   const body = useRef<HTMLDivElement>(null)
   const msgs = chat.msgs()
   const done = shown >= msgs.length
+  const running = playing && !human && !done
+  const typing = running && msgs[shown].from !== 'patient'
 
   const step = () => {
     if (done) return
@@ -88,16 +89,13 @@ export default function WhatsApp() {
   }
   // Reproducción automática: el asistente "escribe" antes de cada respuesta.
   useEffect(() => {
-    if (!playing || human) return
-    if (done) return setPlaying(false)
+    if (!running) return
     const bot = msgs[shown].from !== 'patient'
-    if (bot) setTyping(true)
     const t = setTimeout(() => {
-      setTyping(false)
       step()
     }, bot ? 1100 : 800)
     return () => clearTimeout(t)
-  }, [playing, human, shown, chat.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [running, shown, chat.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     body.current?.scrollTo({ top: body.current.scrollHeight, behavior: 'smooth' })
   }, [shown, typing, extra.length])
@@ -106,7 +104,6 @@ export default function WhatsApp() {
     setChat(c)
     setShown(1)
     setPlaying(false)
-    setTyping(false)
     setHuman(false)
     setExtra([])
   }
@@ -133,7 +130,7 @@ export default function WhatsApp() {
           ))}
           <div className="glass flex flex-wrap gap-2 p-3" role="group" aria-label="Reproducción">
             <button className="btn btn-primary flex-1" onClick={() => setPlaying(!playing)} disabled={done || human}>
-              {playing ? <><Pause size={16} aria-hidden />Pausar</> : <><Play size={16} aria-hidden />Reproducir</>}
+              {running ? <><Pause size={16} aria-hidden />Pausar</> : <><Play size={16} aria-hidden />Reproducir</>}
             </button>
             <button className="btn btn-secondary" onClick={step} disabled={done || playing || human}><StepForward size={16} aria-hidden />Paso</button>
             <button className="btn btn-ghost" onClick={() => open(chat)} aria-label="Reiniciar conversación"><RotateCcw size={16} /></button>
@@ -175,7 +172,7 @@ export default function WhatsApp() {
               </form>
             </div>
           </div>
-          <button className={`btn mt-4 w-full ${human ? 'btn-secondary' : 'btn-primary'}`} onClick={() => { setHuman(!human); setPlaying(false); setTyping(false) }}>
+          <button className={`btn mt-4 w-full ${human ? 'btn-secondary' : 'btn-primary'}`} onClick={() => { setHuman(!human); setPlaying(false) }}>
             {human ? <><Bot size={16} aria-hidden />Devolver al asistente</> : <><Hand size={16} aria-hidden />Tomar el chat</>}
           </button>
         </div>
