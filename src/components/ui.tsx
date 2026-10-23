@@ -99,6 +99,12 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
     if (!d) return
     if (open && !d.open) d.showModal()
     if (!open && d.open) d.close()
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden' // la pagina de fondo no se desplaza mientras hay un dialogo abierto
+    return () => {
+      document.body.style.overflow = prev
+    }
   }, [open])
   return (
     <dialog

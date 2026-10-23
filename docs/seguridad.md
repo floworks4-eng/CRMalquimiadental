@@ -43,3 +43,14 @@ Las pruebas se validaron tambien por mutacion: al debilitar a proposito las poli
 
 El seed crea `doc@`, `valeria@`, `sergio@` y `paola@alquimia.test` con la contrasena local indicada en `supabase/seed.dev.sql`
 (solo local, nunca en produccion). Cada ingreso exige enrolar TOTP la primera vez.
+
+## Gate G2 (Sprint 2)
+
+| Criterio | Estado |
+|---|---|
+| 20 reservas simultaneas del mismo horario → 1 exito | ✅ probado (PGlite) |
+| Odontologo solo ve su agenda y solo agenda a sus pacientes | ✅ probado |
+| Disponibilidad correcta (horarios, feriados, ausencias, solapes, gabinetes) | ✅ 14 casos + coherencia "lo ofrecido se puede reservar" |
+| Transiciones de estado: TS y SQL coinciden | ✅ 147 combinaciones |
+| Agenda operable con teclado | ⏳ implementado (flechas/Enter, pestañas ARIA); sin verificar con lector de pantalla |
+| Pantallas contra Supabase real | ⏳ pendiente: renderizadas solo con datos de prueba, nunca contra la base |

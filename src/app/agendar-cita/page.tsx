@@ -6,7 +6,7 @@ import {
   useDB, useHydrated, createAppointment, findConflict, todayISO, addDays, fecha, nowHM, toHM, byId, CLINIC, type Source,
 } from '@/lib/data'
 import { Field, Wordmark } from '@/components/ui'
-import { PHONE_RE } from '@/components/appointment-modal'
+import { PHONE_RE } from '@/lib/domain/phone'
 
 const SPECIALTIES = [
   { id: 'limpieza', label: 'Limpieza dental', icon: Sparkles, procedureId: 'limpieza', dentistId: 'u-val', cabinetId: 'c2', minutes: 45 },

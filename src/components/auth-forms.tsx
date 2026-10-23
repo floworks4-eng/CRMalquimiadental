@@ -1,33 +1,10 @@
 'use client'
-import { useEffect, useState, useTransition } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import type { z } from 'zod'
+import { useEffect, useState } from 'react'
 import { Field } from './ui'
-import type { ActionResult } from '@/server/errors'
+import { useActionForm } from './use-action-form'
 import { acceptInviteSchema, mfaVerifySchema, newPasswordSchema, resetRequestSchema, signInSchema } from '@/server/schemas/auth'
 import { requestPasswordReset, signIn, startMfaEnroll, confirmMfaEnroll, updatePassword, verifyMfa } from '@/server/actions/auth'
 import { acceptInvite } from '@/server/actions/members'
-
-/** Conecta react-hook-form con una Server Action que devuelve ActionResult. Si la accion redirige, no vuelve. */
-function useActionForm<T extends z.ZodObject>(schema: T, run: (values: z.output<T>) => Promise<ActionResult<unknown> | void>) {
-  // Todos los campos de estos formularios son texto.
-  const form = useForm<Record<string, string>>({ resolver: zodResolver(schema as never) as never })
-  const [pending, start] = useTransition()
-  const [formError, setFormError] = useState('')
-  const [done, setDone] = useState(false)
-  const submit = form.handleSubmit((values) => {
-    setFormError('')
-    start(async () => {
-      const r = await run(values as z.output<T>)
-      if (!r) return
-      if (r.ok) return setDone(true)
-      for (const [k, msg] of Object.entries(r.error.fields ?? {})) form.setError(k, { message: msg })
-      if (!r.error.fields) setFormError(r.error.message)
-    })
-  })
-  return { form, submit, pending, formError, done }
-}
 
 const Submit = ({ pending, children }: { pending: boolean; children: string }) => (
   <button className="btn btn-primary w-full" disabled={pending}>{pending ? 'Un momento…' : children}</button>

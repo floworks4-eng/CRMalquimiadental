@@ -41,6 +41,21 @@ Servidor (`src/server`): clientes Supabase (`server`, `admin` con `server-only`,
 Server Actions de autenticacion e invitaciones, esquemas Zod. Rutas nuevas: `/login`, `/mfa`, `/recuperar`, `/recuperar/nueva`,
 `/invitacion/[token]`, `/forbidden`, `/cuenta`, `/api/auth/callback`. La demo sigue en las demas rutas hasta que cada vertical la reemplace.
 
+## Sprint 2 — Pacientes y agenda
+
+Migracion `0010_agenda.sql`: `appointment_events`, `notifications`, `within_availability()`, `available_slots()` y las RPC
+`create_appointment`, `reschedule_appointment`, `change_appointment_status`. **Las citas ya no se escriben directo desde el cliente**
+(se revoco INSERT/UPDATE): toda regla vive en esas funciones.
+
+- Disponibilidad: horario de la clinica ∩ turno del odontologo − feriados − ausencias − citas del odontologo y del gabinete; paso de 30 min,
+  nunca en el pasado. Un odontologo sin turnos definidos atiende en el horario de la clinica.
+- Una cita da acceso clinico al odontologo (`is_patient_dentist`). Por eso un odontologo solo agenda a **sus** pacientes; asignar a otro lo hace recepcion o admin.
+  (El brief no lo contemplaba: sin esa regla un odontologo podia autoasignarse cualquier paciente y leer su historia.)
+- Maquina de estados en SQL con espejo en `src/lib/domain/status.ts`; `supabase/tests/status-parity.test.ts` verifica las 147 combinaciones.
+- Pantallas reales: `/agenda` (rejilla por gabinete con teclado, pestañas ARIA en celular), `/pacientes` (busqueda, filtros, paginacion, alta),
+  `/pacientes/[id]`, `/recepcion` (sala de espera por orden de llegada, actualiza cada 10 s), campana de notificaciones (cada 15 s).
+- Rutas: la demo vive ahora en `src/app/(demo)` (inicio, consulta, caja, inventario, whatsapp, analitica, ingesta, equipo, ruta); lo real, en `src/app/(app)`.
+
 ## Como se verifica sin Docker
 
 `supabase/tests/` corre las migraciones y el seed en **PGlite** (Postgres en WASM) sobre una emulacion minima de Supabase

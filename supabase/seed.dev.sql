@@ -34,6 +34,13 @@ select '00000000-0000-4000-8000-0000000000c1', d,
   d = 0
 from generate_series(0, 6) as d;
 
+-- Turnos [draft]: Dra. Valeria Lun-Vie 08:30-19:30 y Sab 09:00-13:00; Dr. Sergio Lun-Vie. Doc sin turnos = horario de la clinica.
+insert into public.dentist_schedules (clinic_id, dentist_id, weekday, starts_at, ends_at)
+select '00000000-0000-4000-8000-0000000000c1', u.id::uuid, d, time '08:30', time '19:30'
+from (values ('00000000-0000-4000-8000-0000000000a2'), ('00000000-0000-4000-8000-0000000000a3')) as u (id), generate_series(1, 5) as d;
+insert into public.dentist_schedules (clinic_id, dentist_id, weekday, starts_at, ends_at)
+values ('00000000-0000-4000-8000-0000000000c1', '00000000-0000-4000-8000-0000000000a2', 6, time '09:00', time '13:00');
+
 insert into public.cabinets (id, clinic_id, name, sort) values
   ('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000000c1', 'Gabinete 1', 1),
   ('00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000000c1', 'Gabinete 2', 2),

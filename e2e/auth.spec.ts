@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 // Sin Supabase real: cubre lo que se decide en el servidor sin sesion (redirecciones, validacion, enlaces invalidos).
 test.describe('acceso sin sesion', () => {
-  for (const path of ['/cuenta', '/mfa', '/auditoria']) {
+  for (const path of ['/cuenta', '/mfa', '/auditoria', '/agenda', '/pacientes', '/pacientes/00000000-0000-4000-8000-000000000101', '/recepcion']) {
     test(`${path} manda a /login`, async ({ page }) => {
       await page.goto(path)
       await expect(page).toHaveURL(/\/login$/)
@@ -12,8 +12,11 @@ test.describe('acceso sin sesion', () => {
 
   test('el formulario valida antes de enviar', async ({ page }) => {
     await page.goto('/login')
-    await page.getByRole('button', { name: 'Ingresar' }).click()
-    await expect(page.getByText('Escribe un correo válido.')).toBeVisible()
+    // En desarrollo la pagina puede tardar en hidratar; un clic anterior seria un envio nativo del formulario.
+    await expect(async () => {
+      await page.getByRole('button', { name: 'Ingresar' }).click()
+      await expect(page.getByText('Escribe un correo válido.')).toBeVisible({ timeout: 1500 })
+    }).toPass({ timeout: 20_000 })
     await expect(page.getByText('Escribe tu contraseña.')).toBeVisible()
   })
 

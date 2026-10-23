@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 export default async function MfaPage() {
   if (!hasSupabaseEnv()) return <SupabaseMissing />
   const state = await getMfaState()
-  if (state === 'verified') redirect('/cuenta')
+  if (state === 'verified') redirect('/agenda')
   return (
     <AuthCard
       title={state === 'enroll' ? 'Activa la verificación en dos pasos' : 'Verificación en dos pasos'}

@@ -4,7 +4,7 @@ import { updateSession } from '@/server/supabase/proxy'
 
 // Rutas reales que exigen sesion. Crece a medida que cada vertical reemplaza su pantalla de la demo
 // (la demo sigue publica en `demo`; ver docs/arquitectura.md). Cada pagina ademas valida con guards de servidor.
-const PRIVATE_PREFIXES = ['/cuenta', '/mfa', '/auditoria', '/configuracion']
+const PRIVATE_PREFIXES = ['/cuenta', '/mfa', '/auditoria', '/configuracion', '/agenda', '/pacientes', '/recepcion']
 
 export async function proxy(request: NextRequest) {
   if (!hasSupabaseEnv()) return NextResponse.next() // demo local sin Supabase

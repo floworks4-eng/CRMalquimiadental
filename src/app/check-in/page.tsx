@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { CheckCircle2, ShieldCheck } from 'lucide-react'
 import { useDB, useHydrated, byId, checkIn, todayISO, fecha, nowHM, CLINIC, type AnamnesisData } from '@/lib/data'
 import { Field, Wordmark } from '@/components/ui'
-import { PHONE_RE } from '@/components/appointment-modal'
+import { PHONE_RE } from '@/lib/domain/phone'
 
 const ALLERGIES = ['Ninguna', 'Penicilina', 'Látex', 'Anestésicos locales', 'AINE (ibuprofeno)']
 const CONDITIONS = ['Ninguno', 'Diabetes', 'Hipertensión', 'Cardiopatía', 'Embarazo', 'Anticoagulantes', 'Asma']

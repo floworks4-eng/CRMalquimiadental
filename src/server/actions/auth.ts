@@ -6,7 +6,7 @@ import { requireSession } from '../auth/guards'
 import { fail, fieldErrors, ok, type ActionResult } from '../errors'
 import { mfaEnrollSchema, mfaVerifySchema, newPasswordSchema, resetRequestSchema, signInSchema } from '../schemas/auth'
 
-const HOME = '/cuenta' // TODO(Sprint 2): /inicio cuando exista la pantalla real
+const HOME = '/agenda' // TODO(Sprint 4): /inicio cuando exista el panel
 
 export async function signIn(input: unknown): Promise<ActionResult> {
   const p = signInSchema.safeParse(input)

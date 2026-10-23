@@ -15,7 +15,8 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['Pixel 7'], channel: 'chrome' } },
   ],
   webServer: {
-    command: `npx next dev -p ${PORT}`,
+    // Contra el build de produccion: sin recargas por HMR, que hacian intermitentes las pruebas de formularios.
+    command: `npx next build && npx next start -p ${PORT}`,
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: false, // siempre arranca con el entorno de abajo
     env: {
@@ -24,6 +25,6 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'e2e-placeholder-anon-key',
       NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`,
     },
-    timeout: 120_000,
+    timeout: 240_000,
   },
 })

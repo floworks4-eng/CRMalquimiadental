@@ -1,7 +1,12 @@
-# Alquimia Dental · Demo CRM/ERP clínico
+# Alquimia Dental · CRM/ERP clínico
+
+> **Estado:** esta rama es la **versión real en construcción** (Fase 1, ver `docs/fase1-brief.md`). Requiere Supabase
+> (`.env.local` con `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`; ver `.env.example`).
+> Ya son reales: acceso con MFA, pacientes, agenda y recepción. El resto de pantallas (inicio, consulta, caja, inventario…)
+> siguen siendo la demo con datos ficticios y se reemplazan en los próximos sprints. La demo comercial completa está en la rama `demo` (tag `demo-v1`).
 
 Demo navegable **solo front-end** del sistema que Lumen Labs propone a Alquimia Dental (San Miguel, La Paz).
-Todos los datos son ficticios. Investigación y supuestos: [`docs/clinica.md`](docs/clinica.md).
+Todos los datos de la demo son ficticios. Investigación y supuestos: [`docs/clinica.md`](docs/clinica.md).
 
 ## Correr
 

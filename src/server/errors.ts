@@ -4,12 +4,12 @@ export type ErrorCode =
 
 export type ActionResult<T = void> =
   | { ok: true; data: T }
-  | { ok: false; error: { code: ErrorCode; message: string; fields?: Record<string, string> } }
+  | { ok: false; error: { code: ErrorCode; message: string; fields?: Record<string, string>; data?: unknown } }
 
 export const ok = <T>(data: T): ActionResult<T> => ({ ok: true, data })
-export const fail = (code: ErrorCode, message: string, fields?: Record<string, string>): ActionResult<never> => ({
+export const fail = (code: ErrorCode, message: string, fields?: Record<string, string>, data?: unknown): ActionResult<never> => ({
   ok: false,
-  error: { code, message, fields },
+  error: { code, message, fields, data },
 })
 
 /** Zod -> errores por campo para el formulario. */
