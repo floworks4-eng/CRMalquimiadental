@@ -1,6 +1,5 @@
-import { randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { acceptInviteSchema, inviteSchema, password, setupSchema, signInSchema } from './auth'
+import { createMemberSchema, memberPasswordSchema, password, setupSchema, signInSchema } from './auth'
 
 describe('schemas de auth', () => {
   it('normaliza el correo', () => {
@@ -12,22 +11,20 @@ describe('schemas de auth', () => {
     expect(password.safeParse('a'.repeat(12)).success).toBe(true)
     expect(password.safeParse('a'.repeat(73)).success).toBe(false)
   })
-  it('configuracion inicial: las dos contrasenas deben coincidir', () => {
-    const ok = { clinicName: 'Alquimia Dental', fullName: 'Dr. Ejemplo', email: 'doc@example.com', password: 'una-clave-larga', confirm: 'una-clave-larga' }
+  it('configuracion inicial: sin nombre de clinica y las dos contrasenas deben coincidir', () => {
+    const ok = { fullName: 'Dr. Ejemplo', email: 'doc@example.com', password: 'una-clave-larga', confirm: 'una-clave-larga' }
     expect(setupSchema.safeParse(ok).success).toBe(true)
     const bad = setupSchema.safeParse({ ...ok, confirm: 'otra-clave-larga' })
     expect(!bad.success && bad.error.issues[0].path).toEqual(['confirm'])
   })
-  it('el rol de una invitacion es uno de los tres', () => {
-    expect(inviteSchema.safeParse({ email: 'a@b.co', role: 'superadmin' }).success).toBe(false)
-    expect(inviteSchema.safeParse({ email: 'a@b.co', role: 'reception' }).success).toBe(true)
+  it('alta de una persona del equipo: rol valido y contrasena larga', () => {
+    const base = { fullName: 'Paola Condori', email: 'paola@example.com', password: 'una-clave-larga', role: 'reception' }
+    expect(createMemberSchema.safeParse(base).success).toBe(true)
+    expect(createMemberSchema.safeParse({ ...base, role: 'superadmin' }).success).toBe(false)
+    expect(createMemberSchema.safeParse({ ...base, password: 'corta' }).success).toBe(false)
+    expect(createMemberSchema.parse({ ...base, title: '  ' }).title).toBeUndefined()
   })
-  it('el token generado por el servidor (32 bytes base64url) cumple el esquema', () => {
-    const token = randomBytes(32).toString('base64url')
-    expect(token).toHaveLength(43)
-    const base = { fullName: 'Paola Condori', password: 'una-clave-larga-123' }
-    expect(acceptInviteSchema.safeParse({ ...base, token }).success).toBe(true)
-    expect(acceptInviteSchema.safeParse({ ...base, token: token.slice(1) }).success).toBe(false)
-    expect(acceptInviteSchema.safeParse({ ...base, token: "'; drop table x; --" + token.slice(19) }).success).toBe(false)
+  it('cambio de contrasena por el admin exige un miembro valido', () => {
+    expect(memberPasswordSchema.safeParse({ memberId: 'x', password: 'una-clave-larga' }).success).toBe(false)
   })
 })

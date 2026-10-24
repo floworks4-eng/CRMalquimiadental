@@ -1,5 +1,6 @@
 import 'server-only'
 import { createClient } from '../supabase/server'
+import { createAdminClient } from '../supabase/admin'
 import { requireCapability } from '../auth/guards'
 import type { Role } from '../auth/permissions'
 
@@ -20,14 +21,13 @@ export type SettingsData = {
     id: string; userId: string; fullName: string; email: string | null; role: Role; title: string | null; active: boolean
     schedule: { weekday: number; starts: string; ends: string }[]
   }[]
-  invites: { id: string; email: string; role: Role; expiresAt: string }[]
 }
 
 export async function getSettings(): Promise<SettingsData> {
   const s = await requireCapability('settings.manage')
   const supabase = await createClient()
   const c = s.member.clinicId
-  const [clinic, hours, holidays, cabinets, categories, treatments, recipes, supplies, members, schedules, invites] = await Promise.all([
+  const [clinic, hours, holidays, cabinets, categories, treatments, recipes, supplies, members, schedules, users] = await Promise.all([
     supabase.from('clinics').select('name, legal_name, nit, phone, whatsapp_number, address').eq('id', c).single(),
     supabase.from('clinic_hours').select('weekday, is_closed, opens_at, closes_at').order('weekday'),
     supabase.from('clinic_holidays').select('id, date, name').gte('date', new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)).order('date'),
@@ -38,12 +38,14 @@ export async function getSettings(): Promise<SettingsData> {
     supabase.from('supply_items').select('id, name, unit').eq('active', true).order('name'),
     supabase.from('clinic_members').select('id, user_id, role, title, active, profile:profiles(full_name)').eq('clinic_id', c).order('created_at'),
     supabase.from('dentist_schedules').select('dentist_id, weekday, starts_at, ends_at').eq('active', true).order('weekday'),
-    supabase.from('member_invites').select('id, email, role, expires_at').is('accepted_at', null).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }),
+    // Correos de acceso del equipo (viven en Auth, no en las tablas de la clinica). Solo lo ve el administrador.
+    createAdminClient().auth.admin.listUsers({ perPage: 1000 }),
   ])
   const cl = clinic.data as { name: string; legal_name: string | null; nit: string | null; phone: string | null; whatsapp_number: string | null; address: string | null }
   const hourRows = (hours.data ?? []) as { weekday: number; is_closed: boolean; opens_at: string | null; closes_at: string | null }[]
   const recipeRows = (recipes.data ?? []) as { treatment_id: string; supply_item_id: string; qty: number }[]
   const schedRows = (schedules.data ?? []) as { dentist_id: string; weekday: number; starts_at: string; ends_at: string }[]
+  const emails = new Map((users.data?.users ?? []).map((u) => [u.id, u.email ?? null]))
   return {
     clinic: { name: cl.name, legalName: cl.legal_name ?? '', nit: cl.nit ?? '', phone: cl.phone ?? '', whatsappNumber: cl.whatsapp_number ?? '', address: cl.address ?? '' },
     hours: Array.from({ length: 7 }, (_, weekday) => {
@@ -61,9 +63,8 @@ export async function getSettings(): Promise<SettingsData> {
     supplies: (supplies.data ?? []) as SettingsData['supplies'],
     members: ((members.data ?? []) as unknown as { id: string; user_id: string; role: Role; title: string | null; active: boolean; profile: { full_name: string } | null }[])
       .map((m) => ({
-        id: m.id, userId: m.user_id, fullName: m.profile?.full_name ?? '—', email: null, role: m.role, title: m.title, active: m.active,
+        id: m.id, userId: m.user_id, fullName: m.profile?.full_name ?? '—', email: emails.get(m.user_id) ?? null, role: m.role, title: m.title, active: m.active,
         schedule: schedRows.filter((x) => x.dentist_id === m.user_id).map((x) => ({ weekday: x.weekday, starts: hhmm(x.starts_at), ends: hhmm(x.ends_at) })),
       })),
-    invites: ((invites.data ?? []) as { id: string; email: string; role: Role; expires_at: string }[]).map((i) => ({ id: i.id, email: i.email, role: i.role, expiresAt: i.expires_at })),
   }
 }

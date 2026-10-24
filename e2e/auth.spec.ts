@@ -26,11 +26,6 @@ test.describe('acceso sin sesion', () => {
     await expect(page.getByText('Escribe tu contraseña.')).toBeVisible()
   })
 
-  test('un enlace de invitacion mal formado no revela nada', async ({ page }) => {
-    await page.goto('/invitacion/token-malo')
-    await expect(page.getByRole('heading', { name: 'Enlace no disponible' })).toBeVisible()
-  })
-
   test('las paginas de acceso no se indexan', async ({ page }) => {
     await page.goto('/login')
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/)

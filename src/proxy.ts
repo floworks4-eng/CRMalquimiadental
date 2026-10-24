@@ -4,7 +4,7 @@ import { updateSession } from '@/server/supabase/proxy'
 
 // Todo el sistema es privado (solo el equipo de la clinica). Estas son las unicas rutas sin sesion.
 // Cada pagina ademas valida con guards de servidor; esto solo evita renderizar de mas.
-const PUBLIC_PREFIXES = ['/login', '/recuperar', '/invitacion', '/configuracion-inicial', '/api/auth', '/api/health', '/forbidden']
+const PUBLIC_PREFIXES = ['/login', '/recuperar', '/configuracion-inicial', '/api/auth', '/api/health', '/forbidden']
 
 export async function proxy(request: NextRequest) {
   if (!hasSupabaseEnv()) return NextResponse.next() // sin Supabase cada pagina muestra como configurarlo

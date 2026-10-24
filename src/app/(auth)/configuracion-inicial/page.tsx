@@ -11,7 +11,7 @@ export default async function SetupPage() {
   if (!hasSupabaseEnv()) return <SupabaseMissing />
   if (!(await needsSetup())) redirect('/login')
   return (
-    <AuthCard title="Bienvenido" subtitle="Primer arranque: crea la clínica y tu cuenta de administrador. Solo se hace una vez.">
+    <AuthCard title="Bienvenido" subtitle="Primer arranque: crea la cuenta del administrador de Alquimia Dental. Solo se hace una vez; después, el administrador crea las cuentas del equipo.">
       <SetupForm />
     </AuthCard>
   )

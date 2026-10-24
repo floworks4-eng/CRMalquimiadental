@@ -1,36 +1,107 @@
 'use client'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useMemo, useState, useTransition } from 'react'
+import { FileText, NotebookPen, Stethoscope, ClipboardList, Plus } from 'lucide-react'
+import { Field } from '../ui'
 import { Odontogram, type ToothMark } from '../odontogram'
-import { CONDITION_LABEL, INVOICE_STATUS_LABEL } from '@/lib/domain/clinical'
+import { addClinicalNote } from '@/server/actions/patients'
+import { CONDITION_LABEL, INVOICE_STATUS_LABEL, type ToothCondition } from '@/lib/domain/clinical'
 import { formatBs } from '@/lib/domain/money'
-import { formatDate } from '@/lib/domain/time'
+import { formatDate, todayLaPaz } from '@/lib/domain/time'
 import type { InvoiceSummary, PatientClinical } from '@/server/queries/clinical'
 
-/** Historia clínica en la ficha: odontograma acumulado, plan pendiente y atenciones. Solo admin y su odontólogo. */
-export function PatientClinicalView({ data, child }: { data: PatientClinical; child: boolean }) {
+type Entry =
+  | { kind: 'encounter'; date: string; item: PatientClinical['history'][number] }
+  | { kind: 'note'; date: string; item: PatientClinical['notes'][number] }
+  | { kind: 'anamnesis'; date: string; item: PatientClinical['anamnesisVersions'][number] }
+
+const FILTERS = { all: 'Todo', encounter: 'Atenciones', note: 'Notas e historial importado', anamnesis: 'Anamnesis' } as const
+const SOURCE = { patient_checkin: 'check-in', staff: 'equipo', import: 'importada' } as const
+const finding = (s: string) => {
+  const [tooth, cond, surf] = s.split(' ')
+  return `${tooth}: ${CONDITION_LABEL[cond as ToothCondition] ?? cond}${surf ? ` ${surf}` : ''}`
+}
+
+/** Historia clínica en la ficha. Solo la reciben admin y el odontólogo del paciente (el servidor decide). */
+export function PatientClinicalView({ patientId, data, child }: { patientId: string; data: PatientClinical; child: boolean }) {
   const [selected, setSelected] = useState<number>()
+  const [filter, setFilter] = useState<keyof typeof FILTERS>('all')
   const marks = useMemo(() => {
     const m: Record<number, ToothMark> = {}
     for (const f of data.findings) m[f.tooth] = { condition: f.condition, today: false }
     return m
   }, [data.findings])
-  const history = selected ? data.findings.filter((f) => f.tooth === selected) : []
+  const toothHistory = selected ? data.findings.filter((f) => f.tooth === selected) : []
   const pendingTotal = data.pending.reduce((s, i) => s + i.priceCents, 0)
+
+  const timeline = useMemo<Entry[]>(() => [
+    ...data.history.map((item) => ({ kind: 'encounter' as const, date: item.startedAt, item })),
+    ...data.notes.map((item) => ({ kind: 'note' as const, date: item.notedOn + 'T12:00:00', item })),
+    ...data.anamnesisVersions.map((item) => ({ kind: 'anamnesis' as const, date: item.submittedAt, item })),
+  ].sort((a, b) => b.date.localeCompare(a.date)), [data])
+  const shown = timeline.filter((e) => filter === 'all' || e.kind === filter)
+
   return (
     <>
+      <section className="glass p-5" aria-labelledby="hist-h">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 id="hist-h" className="title-gold text-lg">Historial médico <span className="num text-sm text-muted">({timeline.length})</span></h2>
+          <div role="group" aria-label="Filtrar historial" className="flex flex-wrap gap-1">
+            {(Object.keys(FILTERS) as (keyof typeof FILTERS)[]).map((f) => (
+              <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}
+                className={`rounded-lg px-2.5 py-1 text-xs ${filter === f ? 'bg-white/10 text-gold ring-1 ring-gold/40' : 'text-muted hover:text-bone'}`}>{FILTERS[f]}</button>
+            ))}
+          </div>
+        </div>
+        <AddNote patientId={patientId} />
+        {shown.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">Sin registros todavía. Aparecen aquí las atenciones, las notas, el historial importado y los cambios de anamnesis.</p>
+        ) : (
+          <ol className="mt-4 space-y-3 border-l border-white/10 pl-4">
+            {shown.map((e) => (
+              <li key={e.kind + (e.item as { id: string }).id} className="relative">
+                <span aria-hidden className="absolute -left-[1.4rem] top-1.5 h-2.5 w-2.5 rounded-full border border-gold/60 bg-[#1e1f21]" />
+                {e.kind === 'encounter' && <EncounterEntry e={e.item} />}
+                {e.kind === 'note' && (
+                  <div>
+                    <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                      <NotebookPen size={13} className="text-gold" aria-hidden />
+                      <span className="num text-gold-soft">{formatDate(e.item.notedOn + 'T12:00:00')}</span>
+                      {e.item.source === 'import' ? 'Historial importado' : `Nota de ${e.item.author}`}
+                    </p>
+                    <p className="mt-1 whitespace-pre-line text-sm text-bone">{e.item.body}</p>
+                  </div>
+                )}
+                {e.kind === 'anamnesis' && (
+                  <div>
+                    <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                      <ClipboardList size={13} className="text-gold" aria-hidden />
+                      <span className="num text-gold-soft">{formatDate(e.item.submittedAt)}</span>
+                      Anamnesis v{e.item.version} ({SOURCE[e.item.source]}, {e.item.author})
+                    </p>
+                    <p className="mt-1 text-sm text-bone">{e.item.summary}</p>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
       <section className="glass p-5">
         <h2 className="title-gold mb-3 text-lg">Odontograma</h2>
         <Odontogram marks={marks} selected={selected} onSelect={setSelected} initialDentition={child ? 'temporal' : 'permanente'} />
         {selected && (
           <div className="mt-3 rounded-xl border border-white/8 bg-black/15 p-3 text-sm" aria-live="polite">
             <p className="eyebrow mb-1">Pieza {selected}</p>
-            {history.length === 0 ? <p className="text-muted">Sin hallazgos registrados.</p> : (
-              <ul className="space-y-0.5">{history.map((f) => <li key={f.recordedAt}><span className="num text-muted">{formatDate(f.recordedAt)}</span> · <span className="text-bone">{CONDITION_LABEL[f.condition]}</span>{f.surfaces.length > 0 && ` (${f.surfaces.join('')})`}</li>)}</ul>
+            {toothHistory.length === 0 ? <p className="text-muted">Sin hallazgos registrados.</p> : (
+              <ul className="space-y-0.5">{toothHistory.map((f) => <li key={f.recordedAt}><span className="num text-muted">{formatDate(f.recordedAt)}</span> · <span className="text-bone">{CONDITION_LABEL[f.condition]}</span>{f.surfaces.length > 0 && ` (${f.surfaces.join('')})`}</li>)}</ul>
             )}
           </div>
         )}
       </section>
+
       <section className="glass p-5">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="title-gold text-lg">Plan pendiente</h2>
@@ -47,26 +118,65 @@ export function PatientClinicalView({ data, child }: { data: PatientClinical; ch
           </ul>
         )}
       </section>
-      <section className="glass p-5">
-        <h2 className="title-gold mb-2 text-lg">Atenciones</h2>
-        {data.history.length === 0 ? <p className="text-sm text-muted">Todavía no hay atenciones registradas.</p> : (
-          <ul>
-            {data.history.map((h) => (
-              <li key={h.id} className="border-b border-white/6 py-2.5 text-sm last:border-0">
-                <Link href={`/consulta/${h.appointmentId}`} className="hover:underline">
-                  <span className="num text-gold-soft">{formatDate(h.startedAt)}</span> · <span className="text-bone">{h.chiefComplaint ?? 'Atención'}</span> · <span className="text-muted">{h.dentist}</span>
-                </Link>
-                <span className="block text-xs text-muted">
-                  {h.status === 'in_progress' ? 'En curso' : h.items.join(', ') || 'Sin tratamientos'}
-                  {h.invoice && ` · ${h.invoice.number} ${formatBs(h.invoice.totalCents)}`}
-                  {h.addenda > 0 && ` · ${h.addenda} addenda${h.addenda > 1 ? 's' : ''}`}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </>
+  )
+}
+
+function EncounterEntry({ e }: { e: PatientClinical['history'][number] }) {
+  return (
+    <div>
+      <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
+        <Stethoscope size={13} className="text-gold" aria-hidden />
+        <span className="num text-gold-soft">{formatDate(e.startedAt)}</span>
+        Atención · {e.dentist}{e.status === 'in_progress' && ' · en curso'}
+        <Link href={`/consulta/${e.appointmentId}`} className="text-gold-soft hover:underline">Abrir</Link>
+      </p>
+      {e.chiefComplaint && <p className="mt-1 text-sm text-bone">{e.chiefComplaint}</p>}
+      {e.items.length > 0 && <p className="text-sm text-muted">Realizado: <span className="text-bone">{e.items.join(', ')}</span></p>}
+      {e.findings.length > 0 && <p className="text-sm text-muted">Hallazgos: <span className="text-bone">{e.findings.map(finding).join(', ')}</span></p>}
+      {e.notes && <p className="mt-1 whitespace-pre-line text-sm text-bone">{e.notes}</p>}
+      {e.invoice && <p className="text-xs text-muted"><FileText size={12} className="mr-1 inline" aria-hidden />{e.invoice.number} · {formatBs(e.invoice.totalCents)}</p>}
+      {e.addenda.map((a) => (
+        <p key={a.createdAt} className="mt-1 rounded-lg border border-white/8 bg-black/15 px-2 py-1 text-xs text-muted">
+          Addenda {formatDate(a.createdAt)} ({a.author}) · {a.reason}: <span className="text-bone">{a.notes}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function AddNote({ patientId }: { patientId: string }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [f, setF] = useState({ body: '', notedOn: todayLaPaz() })
+  const [pending, start] = useTransition()
+  const [error, setError] = useState('')
+  if (!open) return <button type="button" className="btn btn-secondary px-3 py-1 text-xs" onClick={() => setOpen(true)}><Plus size={14} aria-hidden />Agregar nota al historial</button>
+  return (
+    <form className="space-y-2 rounded-xl border border-white/8 bg-black/15 p-3"
+      onSubmit={(e) => {
+        e.preventDefault()
+        start(async () => {
+          setError('')
+          const r = await addClinicalNote({ patientId, ...f })
+          if (!r.ok) return setError(r.error.message)
+          setF({ body: '', notedOn: todayLaPaz() })
+          setOpen(false)
+          router.refresh()
+        })
+      }}>
+      <div className="grid gap-2 sm:grid-cols-[150px_1fr]">
+        <Field label="Fecha">{(id) => <input id={id} type="date" max={todayLaPaz()} className="field" value={f.notedOn} onChange={(e) => setF({ ...f, notedOn: e.target.value })} />}</Field>
+        <Field label="Nota" hint="Por ejemplo, transcribir una ficha en papel. No se puede editar después: una corrección es otra nota.">
+          {(id, d) => <textarea id={id} aria-describedby={d} rows={3} maxLength={10_000} className="field" value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} autoFocus />}
+        </Field>
+      </div>
+      {error && <p role="alert" className="text-sm text-bad">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Cancelar</button>
+        <button className="btn btn-primary" disabled={pending || f.body.trim().length < 3}>Guardar nota</button>
+      </div>
+    </form>
   )
 }
 

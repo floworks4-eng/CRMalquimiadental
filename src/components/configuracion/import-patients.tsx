@@ -6,7 +6,8 @@ import { importPatients, type ImportResult, type ImportRow } from '@/server/acti
 import { mapHeader, parseCsv, toIsoDate, toSex, type PatientColumn } from '@/lib/domain/csv'
 import { normalizeBoPhone } from '@/lib/domain/phone'
 
-const TEMPLATE = 'Nombre;Celular;Fecha de nacimiento;Sexo;Zona;Dirección;Correo\nJuan Pérez Mamani;71234567;31/12/1990;M;Sopocachi;Av. 20 de Octubre 123;\n'
+const TEMPLATE = 'Nombre;Celular;Fecha de nacimiento;Sexo;Zona;Dirección;Correo;Alergias;Antecedentes;Medicamentos;Historial;Fecha historial\n'
+  + 'Juan Pérez Mamani;71234567;31/12/1990;M;Sopocachi;Av. 20 de Octubre 123;;Penicilina;Hipertensión;Losartán;"Endodoncia 46 (2023). Resina 36 (2024). Control anual.";15/03/2024\n'
 
 type Preview = { row: number; data: ImportRow; problem: string | null }
 
@@ -21,21 +22,25 @@ export function ImportPatients() {
   const { preview, missing } = useMemo(() => {
     if (!rows?.length) return { preview: [] as Preview[], missing: [] as string[] }
     const cols = mapHeader(rows[0])
-    const missing = [cols.fullName === undefined && 'Nombre', cols.phone === undefined && 'Celular'].filter(Boolean) as string[]
+    const missing = cols.fullName === undefined ? ['Nombre'] : []
     const get = (r: string[], k: PatientColumn) => (cols[k] !== undefined ? (r[cols[k]!] ?? '').trim() : '')
     const seen = new Set<string>()
     const preview = rows.slice(1).map((r, i): Preview => {
       const data: ImportRow = {
         fullName: get(r, 'fullName'), phone: get(r, 'phone'), birthDate: toIsoDate(get(r, 'birthDate')), sex: toSex(get(r, 'sex')),
         zone: get(r, 'zone'), address: get(r, 'address'), email: get(r, 'email'),
+        allergies: get(r, 'allergies'), conditions: get(r, 'conditions'), medications: get(r, 'medications'),
+        history: get(r, 'history'), historyDate: toIsoDate(get(r, 'historyDate')),
       }
-      const phone = normalizeBoPhone(data.phone)
+      const phone = data.phone ? normalizeBoPhone(data.phone) : null
+      const key = phone ?? `${data.fullName.toLowerCase()}|${data.birthDate}`
       const problem = data.fullName.split(/\s+/).length < 2 ? 'Falta nombre y apellido'
-        : !phone ? 'Celular no válido (8 dígitos, empieza con 6 o 7)'
-        : seen.has(phone) ? 'Celular repetido en el archivo'
+        : data.phone && !phone ? 'Celular no válido (8 dígitos, empieza con 6 o 7)'
+        : seen.has(key) ? 'Repetido en el archivo'
         : get(r, 'birthDate') && !data.birthDate ? 'Fecha de nacimiento no reconocida'
+        : get(r, 'historyDate') && !data.historyDate ? 'Fecha del historial no reconocida'
         : null
-      if (phone) seen.add(phone)
+      seen.add(key)
       return { row: i + 2, data, problem }
     })
     return { preview, missing }
@@ -63,7 +68,7 @@ export function ImportPatients() {
     <section className="glass max-w-4xl p-5">
       <h2 className="title-gold text-lg">Importar pacientes desde Excel</h2>
       <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted">
-        <li>Descarga la plantilla, o usa tu planilla con columnas <strong className="text-bone">Nombre</strong> y <strong className="text-bone">Celular</strong> (las demás son opcionales).</li>
+        <li>Descarga la plantilla, o usa tu planilla. Solo <strong className="text-bone">Nombre</strong> es obligatorio. Opcionales: celular, fecha de nacimiento, sexo, zona, dirección, correo y la historia clínica: <strong className="text-bone">Alergias, Antecedentes, Medicamentos, Historial</strong> y <strong className="text-bone">Fecha historial</strong>.</li>
         <li>En Excel: <em>Archivo → Guardar como → CSV</em>.</li>
         <li>Súbelo aquí, revisa la vista previa e importa. Nada se guarda hasta que confirmes.</li>
       </ol>
@@ -80,7 +85,7 @@ export function ImportPatients() {
 
       {result && (
         <div role="status" className="mt-4 rounded-xl border border-ok/40 bg-ok/10 p-3 text-sm">
-          <p className="text-ok">Se importaron {result.inserted} pacientes.{result.skipped.length > 0 && ` Se omitieron ${result.skipped.length}.`}</p>
+          <p className="text-ok">Se importaron {result.inserted} pacientes ({result.withHistory} con historia clínica).{result.skipped.length > 0 && ` Se omitieron ${result.skipped.length}.`}</p>
           {result.skipped.length > 0 && (
             <ul className="mt-2 max-h-40 overflow-y-auto text-xs text-muted">{result.skipped.map((s) => <li key={s.row}>Fila {s.row}: {s.reason}</li>)}</ul>
           )}
@@ -93,12 +98,14 @@ export function ImportPatients() {
           <p className="text-sm"><span className="text-ok">{ok.length} listos</span>{preview.length - ok.length > 0 && <span className="text-warn"> · {preview.length - ok.length} con problemas (no se importan)</span>}</p>
           <div className="mt-2 max-h-80 overflow-auto rounded-xl border border-white/8">
             <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-[#1e1f21]"><tr className="text-left text-muted"><th className="p-2 font-normal">Fila</th><th className="p-2 font-normal">Nombre</th><th className="p-2 font-normal">Celular</th><th className="p-2 font-normal">Nacimiento</th><th className="p-2 font-normal">Zona</th><th className="p-2 font-normal">Estado</th></tr></thead>
+              <thead className="sticky top-0 bg-[#1e1f21]"><tr className="text-left text-muted"><th className="p-2 font-normal">Fila</th><th className="p-2 font-normal">Nombre</th><th className="p-2 font-normal">Celular</th><th className="p-2 font-normal">Nacimiento</th><th className="p-2 font-normal">Historia clínica</th><th className="p-2 font-normal">Estado</th></tr></thead>
               <tbody>
                 {preview.slice(0, 300).map((p) => (
                   <tr key={p.row} className="border-t border-white/6">
                     <td className="num p-2 text-muted">{p.row}</td><td className="p-2 text-bone">{p.data.fullName}</td><td className="num p-2">{p.data.phone}</td>
-                    <td className="num p-2">{p.data.birthDate}</td><td className="p-2">{p.data.zone}</td>
+                    <td className="num p-2">{p.data.birthDate}</td><td className="max-w-64 truncate p-2 text-muted" title={[p.data.allergies && `Alergias: ${p.data.allergies}`, p.data.conditions && `Antecedentes: ${p.data.conditions}`, p.data.medications && `Medicamentos: ${p.data.medications}`, p.data.history].filter(Boolean).join(' · ')}>
+                      {[p.data.allergies && `Alergias: ${p.data.allergies}`, p.data.conditions, p.data.history].filter(Boolean).join(' · ') || '—'}
+                    </td>
                     <td className={`p-2 ${p.problem ? 'text-warn' : 'text-ok'}`}>{p.problem ?? 'OK'}</td>
                   </tr>
                 ))}

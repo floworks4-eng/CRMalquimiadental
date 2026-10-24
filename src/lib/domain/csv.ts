@@ -38,6 +38,12 @@ export const PATIENT_COLUMNS = {
   zone: ['zona', 'barrio'],
   address: ['direccion', 'domicilio'],
   email: ['correo', 'email', 'correoelectronico', 'mail'],
+  // Historia clinica (opcional): pasa a la anamnesis y al historial del paciente.
+  allergies: ['alergias', 'alergia'],
+  conditions: ['antecedentes', 'enfermedades', 'antecedentesmedicos', 'enfermedadesdebase'],
+  medications: ['medicamentos', 'medicacion', 'medicamento'],
+  history: ['historial', 'historialmedico', 'historiaclinica', 'observaciones', 'notas', 'tratamientosrealizados'],
+  historyDate: ['fechahistorial', 'fechaultimavisita', 'ultimavisita', 'fechadelhistorial'],
 } as const
 export type PatientColumn = keyof typeof PATIENT_COLUMNS
 

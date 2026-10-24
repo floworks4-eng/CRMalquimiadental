@@ -6,6 +6,9 @@ import { fail, fieldErrors, type ActionResult } from '../errors'
 import { setupSchema } from '../schemas/auth'
 import { HOME } from '../auth/home'
 
+// Sistema exclusivo de Alquimia Dental: el nombre no se pregunta.
+const CLINIC_NAME = 'Alquimia Dental'
+
 /** ¿Falta crear la clinica? Solo entonces existe /configuracion-inicial. */
 export async function needsSetup() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return false
@@ -15,7 +18,7 @@ export async function needsSetup() {
 }
 
 /**
- * Primer arranque: crea la cuenta del administrador y la clinica. Se cierra sola cuando ya existe una clinica
+ * Primer arranque: crea la cuenta del administrador (el Doc) y la clinica. Se cierra sola cuando ya existe una clinica
  * (la funcion setup_clinic lo vuelve a comprobar con un bloqueo, por si dos personas envian a la vez).
  */
 export async function setupClinic(input: unknown): Promise<ActionResult> {
@@ -29,7 +32,7 @@ export async function setupClinic(input: unknown): Promise<ActionResult> {
   })
   if (error || !created.user) return fail('CONFLICT', 'No pudimos crear la cuenta con ese correo.', { email: 'Ese correo no se puede usar.' })
 
-  const { error: rpcError } = await admin.rpc('setup_clinic', { p_user: created.user.id, p_clinic_name: p.data.clinicName, p_full_name: p.data.fullName })
+  const { error: rpcError } = await admin.rpc('setup_clinic', { p_user: created.user.id, p_clinic_name: CLINIC_NAME, p_full_name: p.data.fullName })
   if (rpcError) {
     // Sin clinica, la cuenta no sirve: se deshace para poder reintentar con el mismo correo.
     await admin.from('profiles').delete().eq('id', created.user.id)

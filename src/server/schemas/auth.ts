@@ -8,8 +8,11 @@ export const fullName = z.string().trim().min(3, 'Escribe tu nombre completo.').
 export const signInSchema = z.object({ email, password: z.string().min(1, 'Escribe tu contraseña.') })
 export const resetRequestSchema = z.object({ email })
 export const newPasswordSchema = z.object({ password })
-export const inviteSchema = z.object({ email, role: z.enum(['clinic_admin', 'dentist', 'reception']) })
-export const acceptInviteSchema = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/), fullName, password })
+export const createMemberSchema = z.object({
+  fullName, email, password, role: z.enum(['clinic_admin', 'dentist', 'reception'], 'Elige el rol.'),
+  title: z.preprocess((v) => (typeof v === 'string' && !v.trim() ? undefined : v), z.string().trim().max(60).optional()),
+})
+export const memberPasswordSchema = z.object({ memberId: z.uuid(), password })
 export const setupSchema = z
-  .object({ clinicName: z.string().trim().min(3, 'Escribe el nombre de la clínica.').max(80), fullName, email, password, confirm: z.string() })
+  .object({ fullName, email, password, confirm: z.string() })
   .refine((v) => v.password === v.confirm, { path: ['confirm'], message: 'Las contraseñas no coinciden.' })

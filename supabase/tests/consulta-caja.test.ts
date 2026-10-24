@@ -208,3 +208,23 @@ describe('Configuración inicial', () => {
     expect((await fresh.query('select full_name from public.profiles')).rows).toEqual([{ full_name: 'Dr. Prueba' }])
   })
 })
+
+describe('Historial clínico (notas)', () => {
+  const note = (actor: Actor, patient: string, body = 'Extracción de 48 en 2019. Ficha en papel.') =>
+    rows(db, actor, "insert into public.clinical_notes (patient_id, body, source, created_by, noted_on) values ($1, $2, 'import', $3, '2019-05-10') returning id",
+      [patient, body, (actor as { uid: string }).uid])
+  it('el admin y el odontólogo del paciente agregan y leen; recepción y otro odontólogo no', async () => {
+    await note(admin, PATIENT)
+    await note(dentistA, PATIENT, 'Control: sin dolor.')
+    await expect(note(reception, PATIENT)).rejects.toThrow(/row-level security/)
+    await expect(note(dentistB, PATIENT)).rejects.toThrow(/row-level security/)
+    expect(await rows(db, dentistA, 'select 1 from public.clinical_notes')).toHaveLength(2)
+    expect(await rows(db, reception, 'select 1 from public.clinical_notes')).toHaveLength(0)
+    expect(await rows(db, dentistB, 'select 1 from public.clinical_notes')).toHaveLength(0)
+  })
+  it('no se edita ni se borra, y queda auditada', async () => {
+    await expect(rows(db, admin, "update public.clinical_notes set body = 'x'")).rejects.toThrow(/permission denied/)
+    await expect(rows(db, admin, 'delete from public.clinical_notes')).rejects.toThrow(/permission denied/)
+    expect((await rows(db, admin, "select 1 from public.audit_log where action = 'clinical_notes.create'")).length).toBe(2)
+  })
+})

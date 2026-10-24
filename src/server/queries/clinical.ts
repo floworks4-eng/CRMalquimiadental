@@ -158,38 +158,65 @@ export async function getConsulta(appointmentId: string): Promise<ConsultaData |
 }
 
 export type EncounterHistoryItem = {
-  id: string; appointmentId: string; status: EncounterView['status']; chiefComplaint: string | null; startedAt: string; dentist: string
-  items: string[]; invoice: { number: string; totalCents: number; paidCents: number } | null; addenda: number
+  id: string; appointmentId: string; status: EncounterView['status']; chiefComplaint: string | null; notes: string | null; startedAt: string; dentist: string
+  items: string[]; findings: string[]; invoice: { number: string; totalCents: number; paidCents: number } | null
+  addenda: { reason: string; notes: string; createdAt: string; author: string }[]
 }
-export type PatientClinical = { anamnesis: AnamnesisView | null; findings: Finding[]; pending: PlanItem[]; history: EncounterHistoryItem[] }
+export type ClinicalNote = { id: string; notedOn: string; body: string; source: 'staff' | 'import'; author: string; createdAt: string }
+export type AnamnesisVersion = { id: string; version: number; submittedAt: string; source: AnamnesisView['source']; summary: string; author: string }
+export type PatientClinical = {
+  anamnesis: AnamnesisView | null; findings: Finding[]; pending: PlanItem[]; history: EncounterHistoryItem[]
+  notes: ClinicalNote[]; anamnesisVersions: AnamnesisVersion[]
+}
 
-/** Bloque clinico de la ficha del paciente. */
+/** Historia clinica completa de la ficha: anamnesis y sus versiones, odontograma, plan, atenciones, notas e historial importado. */
 export async function getPatientClinical(patientId: string): Promise<PatientClinical | null> {
   if (!UUID.test(patientId)) return null
   await requireCapability('patients.read_clinical')
   const supabase = await createClient()
-  const [anamnesis, findings, plan, { data: enc }] = await Promise.all([
+  const [anamnesis, findings, plan, { data: enc }, { data: notes }, { data: versions }] = await Promise.all([
     getCurrentAnamnesis(patientId),
     findingsOf(supabase, patientId),
     planOf(supabase, patientId),
     supabase.from('encounters')
-      .select('id, appointment_id, status, chief_complaint, started_at, dentist:profiles!encounters_dentist_id_fkey(full_name), invoice:invoices(number, total_cents, paid_cents), addenda:encounter_addenda(count)')
-      .eq('patient_id', patientId).order('started_at', { ascending: false }).limit(50),
+      .select('id, appointment_id, status, chief_complaint, notes, started_at, dentist:profiles!encounters_dentist_id_fkey(full_name), invoice:invoices(number, total_cents, paid_cents), addenda:encounter_addenda(reason, notes, created_at, author:profiles(full_name))')
+      .eq('patient_id', patientId).order('started_at', { ascending: false }).limit(200),
+    supabase.from('clinical_notes').select('id, noted_on, body, source, created_at, author:profiles(full_name)').eq('patient_id', patientId).order('noted_on', { ascending: false }).order('created_at', { ascending: false }).limit(500),
+    supabase.from('anamnesis_versions').select('id, version, submitted_at, source, allergies, allergy_other, conditions, medications, author:profiles!anamnesis_versions_submitted_by_fkey(full_name)').eq('patient_id', patientId).order('version', { ascending: false }),
   ])
+  type Inv = { number: string; total_cents: number; paid_cents: number }
   const history = ((enc ?? []) as unknown as {
-    id: string; appointment_id: string; status: EncounterView['status']; chief_complaint: string | null; started_at: string
-    dentist: { full_name: string } | null; invoice: { number: string; total_cents: number; paid_cents: number }[] | { number: string; total_cents: number; paid_cents: number } | null
-    addenda: { count: number }[]
+    id: string; appointment_id: string; status: EncounterView['status']; chief_complaint: string | null; notes: string | null; started_at: string
+    dentist: { full_name: string } | null; invoice: Inv[] | Inv | null
+    addenda: { reason: string; notes: string; created_at: string; author: { full_name: string } | null }[] | null
   }[]).map((r) => {
     const inv = Array.isArray(r.invoice) ? r.invoice[0] : r.invoice
     return {
-      id: r.id, appointmentId: r.appointment_id, status: r.status, chiefComplaint: r.chief_complaint, startedAt: r.started_at, dentist: r.dentist?.full_name ?? '—',
+      id: r.id, appointmentId: r.appointment_id, status: r.status, chiefComplaint: r.chief_complaint, notes: r.notes, startedAt: r.started_at,
+      dentist: r.dentist?.full_name ?? '—',
       items: plan.filter((i) => i.completedEncounterId === r.id).map((i) => i.treatmentName + (i.tooth ? ` · ${i.tooth}` : '')),
+      findings: findings.filter((f) => f.encounterId === r.id).map((f) => `${f.tooth} ${f.condition}${f.surfaces.length ? ` (${f.surfaces.join('')})` : ''}`),
       invoice: inv ? { number: inv.number, totalCents: inv.total_cents, paidCents: inv.paid_cents } : null,
-      addenda: r.addenda?.[0]?.count ?? 0,
+      addenda: (r.addenda ?? []).map((x) => ({ reason: x.reason, notes: x.notes, createdAt: x.created_at, author: x.author?.full_name ?? '—' })),
     }
   })
-  return { anamnesis, findings, pending: plan.filter((i) => i.status !== 'done'), history }
+  const clean = (l: string[] | null, none: string) => (l ?? []).filter((x) => x !== none)
+  return {
+    anamnesis, findings, pending: plan.filter((i) => i.status !== 'done'), history,
+    notes: ((notes ?? []) as unknown as { id: string; noted_on: string; body: string; source: 'staff' | 'import'; created_at: string; author: { full_name: string } | null }[])
+      .map((n) => ({ id: n.id, notedOn: n.noted_on, body: n.body, source: n.source, createdAt: n.created_at, author: n.author?.full_name ?? '—' })),
+    anamnesisVersions: ((versions ?? []) as unknown as {
+      id: string; version: number; submitted_at: string; source: AnamnesisView['source']; allergies: string[] | null; allergy_other: string | null
+      conditions: string[] | null; medications: string | null; author: { full_name: string } | null
+    }[]).map((v) => {
+      const al = [...clean(v.allergies, 'Ninguna'), ...(v.allergy_other ? [v.allergy_other] : [])]
+      const co = clean(v.conditions, 'Ninguno')
+      return {
+        id: v.id, version: v.version, submittedAt: v.submitted_at, source: v.source, author: v.author?.full_name ?? '—',
+        summary: [`Alergias: ${al.join(', ') || 'ninguna'}`, `Antecedentes: ${co.join(', ') || 'ninguno'}`, v.medications && `Medicamentos: ${v.medications}`].filter(Boolean).join(' · '),
+      }
+    }),
+  }
 }
 
 /** Facturas del paciente (recepcion tambien las ve: es dinero, no salud). */

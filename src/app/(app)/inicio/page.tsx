@@ -92,8 +92,8 @@ function SetupSteps({ setup }: { setup: NonNullable<Awaited<ReturnType<typeof ge
     { done: setup.hoursReviewed, label: 'Revisa el horario de atención y los gabinetes', href: '/configuracion?tab=horarios' },
     { done: setup.treatments > 0, label: 'Carga tus tratamientos con sus precios', href: '/configuracion?tab=tratamientos' },
     { done: setup.supplies > 0, label: 'Carga los insumos y su stock', href: '/inventario' },
-    { done: setup.members > 1, label: 'Invita a tu equipo (odontólogos y recepción)', href: '/configuracion?tab=equipo' },
-    { done: setup.patients > 0, label: 'Registra o importa tus pacientes', href: '/configuracion?tab=importar' },
+    { done: setup.members > 1, label: 'Crea las cuentas de tu equipo (odontólogos y recepción)', href: '/configuracion?tab=equipo' },
+    { done: setup.patients > 0, label: 'Importa tus pacientes con su historial médico', href: '/configuracion?tab=importar' },
   ]
   return (
     <section className="glass halo relative mb-6 p-5" aria-labelledby="setup-h">

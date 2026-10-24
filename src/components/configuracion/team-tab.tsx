@@ -1,12 +1,11 @@
 'use client'
 import { useState } from 'react'
-import { Copy, Plus, Trash2, UserPlus } from 'lucide-react'
+import { KeyRound, Plus, Trash2, UserPlus } from 'lucide-react'
 import { Field, Modal } from '../ui'
 import { useSave, WEEKDAYS } from './use-save'
 import { saveSchedule, updateMember } from '@/server/actions/settings'
-import { inviteMember } from '@/server/actions/members'
+import { createMember, setMemberPassword } from '@/server/actions/members'
 import { ROLE_LABEL, type Role } from '@/server/auth/permissions'
-import { formatDateTime } from '@/lib/domain/time'
 import type { SettingsData } from '@/server/queries/settings'
 
 type Member = SettingsData['members'][number]
@@ -15,6 +14,7 @@ const ROLES = Object.keys(ROLE_LABEL) as Role[]
 export function TeamTab({ data }: { data: SettingsData }) {
   const [editing, setEditing] = useState<Member | null>(null)
   const [schedule, setSchedule] = useState<Member | null>(null)
+  const [password, setPassword] = useState<Member | null>(null)
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.4fr_1fr]">
       <section className="glass p-5">
@@ -24,22 +24,27 @@ export function TeamTab({ data }: { data: SettingsData }) {
             <li key={m.id} className={`flex flex-wrap items-center gap-2 rounded-xl border border-white/8 bg-black/15 px-3 py-2 text-sm ${m.active ? '' : 'opacity-50'}`}>
               <span className="min-w-0 flex-1">
                 <span className="text-bone">{m.fullName}</span>
+                {m.email && <span className="ml-2 text-xs text-muted">{m.email}</span>}
                 <span className="block text-xs text-muted">
                   {ROLE_LABEL[m.role]}{m.title && ` · ${m.title}`}{!m.active && ' · desactivado'}
                   {m.role !== 'reception' && ` · ${m.schedule.length ? `${m.schedule.length} turnos` : 'todo el horario de la clínica'}`}
                 </span>
               </span>
               {m.role !== 'reception' && <button className="btn btn-ghost px-2 py-1 text-xs" onClick={() => setSchedule(m)}>Turnos</button>}
+              <button className="btn btn-ghost px-2 py-1 text-xs" onClick={() => setPassword(m)}><KeyRound size={13} aria-hidden />Contraseña</button>
               <button className="btn btn-ghost px-2 py-1 text-xs" onClick={() => setEditing(m)}>Editar</button>
             </li>
           ))}
         </ul>
         <p className="mt-3 text-xs text-muted">Nadie se borra: se desactiva y deja de entrar, pero su historial queda. Siempre queda al menos un administrador.</p>
       </section>
-      <Invite invites={data.invites} />
+      <CreateMember />
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title={`Editar: ${editing?.fullName ?? ''}`}>
         {editing && <MemberForm key={editing.id} m={editing} onDone={() => setEditing(null)} />}
+      </Modal>
+      <Modal open={!!password} onClose={() => setPassword(null)} title={`Contraseña de ${password?.fullName ?? ''}`}>
+        {password && <PasswordForm key={password.id} m={password} onDone={() => setPassword(null)} />}
       </Modal>
       <Modal open={!!schedule} onClose={() => setSchedule(null)} title={`Turnos: ${schedule?.fullName ?? ''}`} wide>
         {schedule && <ScheduleForm key={schedule.id} m={schedule} hours={data.hours} onDone={() => setSchedule(null)} />}
@@ -103,52 +108,62 @@ function ScheduleForm({ m, hours, onDone }: { m: Member; hours: SettingsData['ho
   )
 }
 
-function Invite({ invites }: { invites: SettingsData['invites'] }) {
-  const [f, setF] = useState({ email: '', role: 'dentist' as Role })
-  const [link, setLink] = useState<{ url: string; expiresAt: string } | null>(null)
-  const [copied, setCopied] = useState(false)
+/** Solo el administrador crea cuentas. Le entrega a la persona su correo y la contraseña inicial. */
+function CreateMember() {
+  const empty = { fullName: '', email: '', role: 'dentist' as Role, title: '', password: '' }
+  const [f, setF] = useState(empty)
+  const [created, setCreated] = useState<{ name: string; email: string } | null>(null)
   const { pending, fields, run, status } = useSave()
+  const input = (k: 'fullName' | 'email' | 'title' | 'password', label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}, hint?: string) => (
+    <Field label={label} error={fields[k]} hint={hint}>{(id) => <input id={id} className="field" autoComplete="off" value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} {...props} />}</Field>
+  )
   return (
     <section className="glass h-fit p-5">
-      <h2 className="title-gold mb-1 text-lg">Invitar a alguien</h2>
-      <p className="mb-3 text-xs text-muted">Se genera un enlace de un solo uso (vale 72 horas). Mándalo por WhatsApp o correo; la persona elige su contraseña.</p>
+      <h2 className="title-gold mb-1 text-lg">Crear cuenta</h2>
+      <p className="mb-3 text-xs text-muted">Solo el administrador crea cuentas. Entrégale a la persona su correo y la contraseña inicial; después la cambia en «Mi cuenta».</p>
       <form className="space-y-3" onSubmit={(e) => {
         e.preventDefault()
-        setLink(null)
-        run(async () => {
-          const r = await inviteMember(f)
-          if (r.ok) setLink({ url: r.data.inviteUrl, expiresAt: r.data.expiresAt })
-          return r
-        }, () => setF({ ...f, email: '' }))
+        setCreated(null)
+        run(() => createMember(f), () => { setCreated({ name: f.fullName, email: f.email }); setF(empty) })
       }}>
-        <Field label="Correo" error={fields.email}>{(id) => <input id={id} type="email" className="field" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />}</Field>
-        <Field label="Rol">
-          {(id) => (
-            <select id={id} className="field" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as Role })}>
-              {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-            </select>
-          )}
-        </Field>
-        <button className="btn btn-primary w-full" disabled={pending}><UserPlus size={16} aria-hidden />Crear invitación</button>
+        {input('fullName', 'Nombre completo')}
+        {input('email', 'Correo', { type: 'email' })}
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Rol">
+            {(id) => (
+              <select id={id} className="field" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as Role })}>
+                {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+              </select>
+            )}
+          </Field>
+          {input('title', 'Cargo (opcional)', { placeholder: 'Ej. Endodoncista' })}
+        </div>
+        {input('password', 'Contraseña inicial', { type: 'text' }, 'Mínimo 12 caracteres.')}
+        <button className="btn btn-primary w-full" disabled={pending}><UserPlus size={16} aria-hidden />{pending ? 'Creando…' : 'Crear cuenta'}</button>
       </form>
-      <div className="mt-2">{!link && status}</div>
-      {link && (
-        <div className="mt-3 rounded-xl border border-ok/40 bg-ok/10 p-3 text-sm" role="status">
-          <p className="text-ok">Invitación creada. Copia el enlace y envíaselo:</p>
-          <p className="num mt-1 break-all text-xs text-bone">{link.url}</p>
-          <button className="btn btn-secondary mt-2 px-3 py-1 text-xs" onClick={() => navigator.clipboard.writeText(link.url).then(() => setCopied(true))}>
-            <Copy size={13} aria-hidden />{copied ? 'Copiado' : 'Copiar enlace'}
-          </button>
-        </div>
-      )}
-      {invites.length > 0 && (
-        <div className="mt-4 border-t border-white/8 pt-3">
-          <p className="eyebrow mb-1">Invitaciones pendientes</p>
-          <ul className="space-y-1 text-xs text-muted">
-            {invites.map((i) => <li key={i.id}><span className="text-bone">{i.email}</span> · {ROLE_LABEL[i.role]} · vence {formatDateTime(i.expiresAt)}</li>)}
-          </ul>
-        </div>
-      )}
+      <div className="mt-2">{!created && status}</div>
+      {created && <p role="status" className="mt-3 rounded-xl border border-ok/40 bg-ok/10 p-3 text-sm text-ok">Cuenta creada para {created.name}. Ya puede entrar con {created.email} y la contraseña que le diste.</p>}
+      <p className="mt-4 border-t border-white/8 pt-3 text-xs text-muted">
+        Administrador: todo. Odontólogo: su agenda, sus pacientes y su historia clínica. Recepción: agenda, pacientes (sin datos clínicos) y caja.
+      </p>
     </section>
+  )
+}
+
+function PasswordForm({ m, onDone }: { m: Member; onDone: () => void }) {
+  const [value, setValue] = useState('')
+  const [done, setDone] = useState(false)
+  const { pending, fields, run, status } = useSave()
+  if (done) return <div className="space-y-3" role="status"><p className="text-sm text-ok">Contraseña cambiada. Entrégasela a {m.fullName}.</p><button className="btn btn-primary" onClick={onDone}>Listo</button></div>
+  return (
+    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); run(() => setMemberPassword({ memberId: m.id, password: value }), () => setDone(true)) }}>
+      <p className="text-sm text-muted">Para cuando {m.fullName} olvidó su contraseña. La anterior deja de funcionar.</p>
+      <Field label="Contraseña nueva" error={fields.password} hint="Mínimo 12 caracteres.">{(id) => <input id={id} className="field" autoComplete="off" value={value} onChange={(e) => setValue(e.target.value)} autoFocus />}</Field>
+      {status}
+      <div className="flex justify-end gap-2">
+        <button type="button" className="btn btn-ghost" onClick={onDone}>Cancelar</button>
+        <button className="btn btn-primary" disabled={pending}>Guardar</button>
+      </div>
+    </form>
   )
 }

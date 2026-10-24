@@ -14,7 +14,7 @@ import { formatDayLong } from '@/lib/domain/time'
 import type { SettingsData } from '@/server/queries/settings'
 import { useSave, WEEKDAYS } from './use-save'
 
-export const TABS = { clinica: 'Clínica', horarios: 'Horarios y gabinetes', tratamientos: 'Tratamientos y precios', equipo: 'Equipo', importar: 'Importar pacientes' } as const
+export const TABS = { clinica: 'Clínica', horarios: 'Horarios y gabinetes', tratamientos: 'Tratamientos y precios', equipo: 'Equipo', importar: 'Importar pacientes e historial' } as const
 export type Tab = keyof typeof TABS
 export function SettingsView({ data, tab }: { data: SettingsData; tab: Tab }) {
   return (

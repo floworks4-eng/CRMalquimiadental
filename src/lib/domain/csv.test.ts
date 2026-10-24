@@ -11,6 +11,8 @@ describe('CSV de pacientes', () => {
   })
   it('reconoce encabezados con acentos y variantes', () => {
     expect(mapHeader(['Paciente', 'Teléfono', 'Fecha de nacimiento', 'Género', 'E-mail'])).toEqual({ fullName: 0, phone: 1, birthDate: 2, sex: 3, email: 4 })
+    expect(mapHeader(['Nombre', 'Alergias', 'Enfermedades', 'Medicación', 'Historial médico', 'Última visita']))
+      .toEqual({ fullName: 0, allergies: 1, conditions: 2, medications: 3, history: 4, historyDate: 5 })
   })
   it('fechas y sexo', () => {
     expect(toIsoDate('3/7/1990')).toBe('1990-07-03')

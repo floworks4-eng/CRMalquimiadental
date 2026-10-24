@@ -25,8 +25,8 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
   const clinical = (
     <>
       {clinicalData && <AnamnesisCard patientId={patient.id} anamnesis={clinicalData.anamnesis} />}
+      {clinicalData && <PatientClinicalView patientId={patient.id} data={clinicalData} child={!!patient.birthDate && ageYears(patient.birthDate) < 12} />}
       {can(r, 'billing.read') && <PatientInvoices invoices={invoices} canCharge={can(r, 'cash.read')} />}
-      {clinicalData && <PatientClinicalView data={clinicalData} child={!!patient.birthDate && ageYears(patient.birthDate) < 12} />}
     </>
   )
   return (
