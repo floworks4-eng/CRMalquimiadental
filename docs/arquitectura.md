@@ -56,6 +56,28 @@ Migracion `0010_agenda.sql`: `appointment_events`, `notifications`, `within_avai
   `/pacientes/[id]`, `/recepcion` (sala de espera por orden de llegada, actualiza cada 10 s), campana de notificaciones (cada 15 s).
 - Rutas: la demo vive ahora en `src/app/(demo)` (inicio, consulta, caja, inventario, whatsapp, analitica, ingesta, equipo, ruta); lo real, en `src/app/(app)`.
 
+## Sprint 3 — Check-in y portal publico
+
+Migracion `0011_checkin_public.sql`: `consent_versions` (texto inmutable + huella SHA-256), `patient_consents` (evidencia: version,
+huella, firma, IP en hash), `checkin_tokens` (solo el hash; un uso; vence 2 h despues de la cita), `checkin_submissions`,
+`attribution_touches`, `rate_limit_events`. RPC: `issue_checkin_token` (recepcion/admin), `checkin_context`, `checkin_target`,
+`submit_checkin`, `public_slots`, `public_book`, `public_consent_texts`, `rate_limit_hit`.
+
+- **Las RPC publicas solo las ejecuta `service_role`** (el servidor de Next). `anon` no tiene ningun permiso: el navegador del paciente
+  nunca habla con PostgREST. Desviacion del brief, que preveia `anon` con EXECUTE.
+- **Fail closed legal:** sin un consentimiento aprobado (no borrador) no hay check-in ni reserva. En desarrollo se permite con
+  `clinics.allow_draft_legal` (solo en el seed).
+- Check-in: QR en `/recepcion` → `/c/[token]` en el celular del paciente → 3 pasos (datos, salud, consentimiento + firma dibujada) →
+  firma a Storage → RPC atomica (anamnesis v+1, consentimientos, cita en sala de espera, avisos). Si la RPC falla, la firma se borra.
+  El odontologo recibe la alerta con alergias; recepcion solo que el paciente llego.
+- Reserva publica `/reservar`: tratamientos marcados `bookable_online`, horarios sin datos de odontologos, reserva atomica que prueba
+  odontologo/gabinete libres hasta que uno acepta, dedupe por celular (max. 3 citas vigentes), atribucion UTM, enlace de check-in.
+- Limites: check-in 5/10 min por enlace y 20/h por IP; reservas 10/h por IP y 5/h por celular. Turnstile queda para el Sprint 5.
+- Ficha del paciente: tarjeta de anamnesis con alerta de alergias y "Marcar como revisada" (solo roles clinicos; para recepcion el
+  bloque ni siquiera se envia al navegador).
+- Paginas `/consentimiento` (textos vigentes desde la base) y `/privacidad` (borrador tecnico marcado; el texto legal lo redacta un abogado).
+- Se eliminaron `/check-in` y `/agendar-cita` de la demo.
+
 ## Como se verifica sin Docker
 
 `supabase/tests/` corre las migraciones y el seed en **PGlite** (Postgres en WASM) sobre una emulacion minima de Supabase

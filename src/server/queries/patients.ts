@@ -79,3 +79,31 @@ export async function pickPatients(q: string) {
   const { data } = await (/^[+\d ]+$/.test(term) && digits ? base.ilike('phone_e164', `%${digits}%`) : base.ilike('normalized_name', `%${term}%`)).order('full_name').limit(8)
   return ((data ?? []) as { id: string; full_name: string; phone_e164: string | null }[]).map((p) => ({ id: p.id, fullName: p.full_name, phone: p.phone_e164 }))
 }
+
+export type AnamnesisView = {
+  id: string; version: number; allergies: string[]; allergyOther: string | null; conditions: string[]; medications: string | null
+  reason: string | null; emergencyContactName: string | null; emergencyContactPhone: string | null; pregnancy: boolean | null
+  anticoagulants: boolean | null; source: 'patient_checkin' | 'staff' | 'import'; submittedAt: string; reviewedAt: string | null
+}
+
+/** Datos de salud: solo para quien puede leer lo clinico de ese paciente (RLS lo vuelve a exigir). */
+export async function getCurrentAnamnesis(patientId: string): Promise<AnamnesisView | null> {
+  if (!/^[0-9a-f-]{36}$/.test(patientId)) return null
+  await requireCapability('patients.read_clinical')
+  const { data } = await (await createClient())
+    .from('v_current_anamnesis')
+    .select('id, version, allergies, allergy_other, conditions, medications, reason, emergency_contact_name, emergency_contact_phone, pregnancy, anticoagulants, source, submitted_at, reviewed_at')
+    .eq('patient_id', patientId)
+    .maybeSingle()
+  if (!data) return null
+  const r = data as {
+    id: string; version: number; allergies: string[] | null; allergy_other: string | null; conditions: string[] | null; medications: string | null
+    reason: string | null; emergency_contact_name: string | null; emergency_contact_phone: string | null; pregnancy: boolean | null
+    anticoagulants: boolean | null; source: AnamnesisView['source']; submitted_at: string; reviewed_at: string | null
+  }
+  return {
+    id: r.id, version: r.version, allergies: r.allergies ?? [], allergyOther: r.allergy_other, conditions: r.conditions ?? [],
+    medications: r.medications, reason: r.reason, emergencyContactName: r.emergency_contact_name, emergencyContactPhone: r.emergency_contact_phone,
+    pregnancy: r.pregnancy, anticoagulants: r.anticoagulants, source: r.source, submittedAt: r.submitted_at, reviewedAt: r.reviewed_at,
+  }
+}

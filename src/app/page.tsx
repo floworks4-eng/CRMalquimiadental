@@ -60,13 +60,13 @@ export default function Entrada() {
       </div>
 
       <div className="mt-10 grid gap-3 sm:grid-cols-2">
-        <Link href="/agendar-cita" className="glass flex items-center gap-3 p-4 text-sm hover:ring-1 hover:ring-gold/40">
+        <Link href="/reservar" className="glass flex items-center gap-3 p-4 text-sm hover:ring-1 hover:ring-gold/40">
           <CalendarPlus className="text-gold" size={20} aria-hidden />
-          <span><span className="block text-bone">Portal público /agendar-cita</span><span className="text-muted">Lo que ve el paciente desde el anuncio</span></span>
+          <span><span className="block text-bone">Portal público /reservar</span><span className="text-muted">Versión real (requiere Supabase)</span></span>
         </Link>
-        <Link href="/check-in" className="glass flex items-center gap-3 p-4 text-sm hover:ring-1 hover:ring-gold/40">
+        <Link href="/login" className="glass flex items-center gap-3 p-4 text-sm hover:ring-1 hover:ring-gold/40">
           <QrCode className="text-gold" size={20} aria-hidden />
-          <span><span className="block text-bone">Check-in del paciente /check-in</span><span className="text-muted">Anamnesis digital desde el celular</span></span>
+          <span><span className="block text-bone">Acceso del equipo /login</span><span className="text-muted">Agenda, pacientes y recepción reales</span></span>
         </Link>
       </div>
 

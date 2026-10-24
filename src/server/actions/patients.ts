@@ -1,4 +1,5 @@
 'use server'
+import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '../supabase/server'
 import { requireCapability } from '../auth/guards'
@@ -58,4 +59,22 @@ export async function updatePatient(input: unknown): Promise<ActionResult> {
 
 export async function searchPatientPicker(q: string) {
   return pickPatients(String(q).slice(0, 60))
+}
+
+/** El odontologo (o admin) confirma que leyo la anamnesis vigente antes de atender. Queda auditado por trigger. */
+export async function reviewAnamnesis(input: unknown): Promise<ActionResult> {
+  const p = z.object({ patientId: z.uuid(), versionId: z.uuid() }).safeParse(input)
+  if (!p.success) return fail('VALIDATION', 'Datos no válidos.')
+  const s = await requireCapability('patients.read_clinical')
+  const { data, error } = await (await createClient())
+    .from('anamnesis_versions')
+    .update({ reviewed_by: s.userId, reviewed_at: new Date().toISOString() })
+    .eq('id', p.data.versionId)
+    .eq('patient_id', p.data.patientId)
+    .is('reviewed_at', null)
+    .select('id')
+  if (error) return fail('INTERNAL', 'No pudimos registrar la revisión.')
+  if (!data?.length) return fail('CONFLICT', 'Esta anamnesis ya fue revisada o ya no es la vigente.')
+  revalidatePath(`/pacientes/${p.data.patientId}`)
+  return ok(undefined)
 }

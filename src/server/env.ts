@@ -7,3 +7,6 @@ export function publicEnv() {
 }
 
 export const hasSupabaseEnv = () => !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+/** Las paginas publicas (check-in y reservas) necesitan ademas la clave de servidor. */
+export const hasPublicBackend = () => hasSupabaseEnv() && !!process.env.SUPABASE_SERVICE_ROLE_KEY

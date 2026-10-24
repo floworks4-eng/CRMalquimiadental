@@ -28,13 +28,15 @@ export const ID = {
   reception: '00000000-0000-4000-8000-0000000000a4',
 } as const
 
-export type Actor = 'anon' | { uid: string; aal?: 'aal1' | 'aal2' }
+export type Actor = 'anon' | 'service' | { uid: string; aal?: 'aal1' | 'aal2' }
 
 /** Ejecuta `fn` como ese usuario (rol Postgres + JWT), dentro de una transaccion. */
 export async function as<T>(db: Db, actor: Actor, fn: (tx: Transaction) => Promise<T>): Promise<T> {
   return db.transaction(async (tx) => {
     if (actor === 'anon') {
       await tx.exec('set local role anon')
+    } else if (actor === 'service') {
+      await tx.exec('set local role service_role') // el servidor de Next, que llama a las RPC publicas
     } else {
       await tx.exec('set local role authenticated')
       const claims = JSON.stringify({ sub: actor.uid, role: 'authenticated', aal: actor.aal ?? 'aal2' })

@@ -12,8 +12,10 @@ import { formatDate, formatTime } from '@/lib/domain/time'
 import { formatPhone } from '@/lib/domain/phone'
 import type { BookingOptions, PatientDetail } from '@/server/queries/types'
 
-export function PatientDetailView({ patient: p, options, canEdit, canBook, canAssignDentist }: {
+export function PatientDetailView({ patient: p, options, canEdit, canBook, canAssignDentist, clinical }: {
   patient: PatientDetail; options: BookingOptions; canEdit: boolean; canBook: boolean; canAssignDentist: boolean
+  /** Bloque clinico: el servidor solo lo arma para roles que pueden verlo; para recepcion ni siquiera viaja al navegador. */
+  clinical?: React.ReactNode
 }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -55,6 +57,7 @@ export function PatientDetailView({ patient: p, options, canEdit, canBook, canAs
         </section>
 
         <div className="space-y-5">
+          {clinical}
           <section className="glass p-5">
             <h2 className="title-gold mb-2 text-lg">Próximas citas</h2>
             {upcoming.length ? <ul>{upcoming.map((a) => <Row key={a.id} a={a} />)}</ul> : <p className="text-sm text-muted">Sin citas próximas.</p>}

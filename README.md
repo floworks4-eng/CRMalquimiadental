@@ -2,7 +2,7 @@
 
 > **Estado:** esta rama es la **versión real en construcción** (Fase 1, ver `docs/fase1-brief.md`). Requiere Supabase
 > (`.env.local` con `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`; ver `.env.example`).
-> Ya son reales: acceso con MFA, pacientes, agenda y recepción. El resto de pantallas (inicio, consulta, caja, inventario…)
+> Ya son reales: acceso con MFA, pacientes, agenda, recepción con QR de check-in, check-in del paciente (`/c/[token]`) y reservas en línea (`/reservar`). El resto de pantallas (inicio, consulta, caja, inventario…)
 > siguen siendo la demo con datos ficticios y se reemplazan en los próximos sprints. La demo comercial completa está en la rama `demo` (tag `demo-v1`).
 
 Demo navegable **solo front-end** del sistema que Lumen Labs propone a Alquimia Dental (San Miguel, La Paz).

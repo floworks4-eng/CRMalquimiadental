@@ -3,8 +3,8 @@
 -- Usuarios de desarrollo: <rol>@alquimia.test, contrasena local "DevOnly-Alquimia-2026!". Cada login exige enrolar TOTP (MFA).
 set search_path = public, extensions;
 
-insert into public.clinics (id, slug, name, legal_name, address, timezone)
-values ('00000000-0000-4000-8000-0000000000c1', 'alquimia-dev', 'Alquimia Dental (dev)', 'Clinica Odontologica Alquimia Dental [draft]', 'San Miguel, La Paz [draft]', 'America/La_Paz');
+insert into public.clinics (id, slug, name, legal_name, address, timezone, allow_draft_legal)
+values ('00000000-0000-4000-8000-0000000000c1', 'alquimia-dev', 'Alquimia Dental (dev)', 'Clinica Odontologica Alquimia Dental [draft]', 'San Miguel, La Paz [draft]', 'America/La_Paz', true);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
 select u.id::uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', u.email,
@@ -33,6 +33,12 @@ select '00000000-0000-4000-8000-0000000000c1', d,
   case when d between 1 and 5 then time '19:30' when d = 6 then time '13:00' end,
   d = 0
 from generate_series(0, 6) as d;
+
+-- Consentimientos: BORRADORES de desarrollo. Los textos oficiales los entrega la clinica y los revisa un abogado.
+insert into public.consent_versions (clinic_id, type, version, body_md, draft) values
+  ('00000000-0000-4000-8000-0000000000c1', 'data_processing', 'dev-0', 'Autorizo a Alquimia Dental a registrar y tratar mis datos personales y de salud para mi atencion. [BORRADOR: texto legal pendiente de revision]', true),
+  ('00000000-0000-4000-8000-0000000000c1', 'clinical_treatment', 'dev-0', 'Declaro que la informacion de mi ficha es verdadera y consiento la atencion odontologica. [BORRADOR: texto legal pendiente de revision]', true),
+  ('00000000-0000-4000-8000-0000000000c1', 'whatsapp_reminders', 'dev-0', 'Acepto recibir recordatorios de mis citas por WhatsApp. Puedo pedir la baja en cualquier momento. [BORRADOR]', true);
 
 -- Turnos [draft]: Dra. Valeria Lun-Vie 08:30-19:30 y Sab 09:00-13:00; Dr. Sergio Lun-Vie. Doc sin turnos = horario de la clinica.
 insert into public.dentist_schedules (clinic_id, dentist_id, weekday, starts_at, ends_at)
@@ -68,6 +74,9 @@ from (values
   ('extraccion', 'Extraccion simple', '00000000-0000-4000-8000-0000000000d4', 30, 180, true, 9),
   ('blanqueamiento', 'Blanqueamiento en consultorio', '00000000-0000-4000-8000-0000000000d5', 60, 630, false, 10)
 ) as t (code, name, cat, mins, bs, tooth, sort);
+
+-- Tratamientos que se pueden reservar en linea [draft]
+update public.treatments set bookable_online = true where code in ('consulta', 'limpieza', 'blanqueamiento');
 
 insert into public.supply_items (clinic_id, name, unit, min_stock)
 select '00000000-0000-4000-8000-0000000000c1', s.name, s.unit, s.min

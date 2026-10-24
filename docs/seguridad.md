@@ -54,3 +54,17 @@ El seed crea `doc@`, `valeria@`, `sergio@` y `paola@alquimia.test` con la contra
 | Transiciones de estado: TS y SQL coinciden | ✅ 147 combinaciones |
 | Agenda operable con teclado | ⏳ implementado (flechas/Enter, pestañas ARIA); sin verificar con lector de pantalla |
 | Pantallas contra Supabase real | ⏳ pendiente: renderizadas solo con datos de prueba, nunca contra la base |
+
+## Gate G3 (Sprint 3)
+
+| Criterio | Estado |
+|---|---|
+| Token de check-in: 256 bits, solo hash en la base, un uso, vence, se revoca al emitir otro | ✅ probado (PGlite) |
+| 5 envios simultaneos con el mismo enlace → 1 | ✅ probado |
+| El contexto publico no expone apellido, telefono ni datos de salud | ✅ probado |
+| Recepcion no ve alergias (ni en consentimientos ni en avisos); el odontologo si | ✅ probado |
+| Sin texto legal aprobado no hay check-in ni reserva | ✅ probado |
+| Reserva publica sin enumeracion (solo horas), dedupe por celular, limite de citas | ✅ probado |
+| `anon` y `authenticated` no ejecutan ninguna RPC publica | ✅ probado |
+| Firma: solo PNG real, ≤150 KB, dimensiones razonables; ruta atada al paciente del enlace | ✅ probado |
+| Check-in desde un celular real contra Supabase real | ⏳ pendiente: pantallas revisadas solo con datos de prueba |

@@ -88,7 +88,8 @@ end $$;
 revoke all on function public.within_availability(uuid, uuid, timestamptz, timestamptz) from public, anon, authenticated;
 
 /* ───────── Horarios libres ───────── */
-create function public.available_slots(
+-- Nucleo sin chequeo de permiso: solo lo llaman funciones definer (personal y reserva publica).
+create function public.slots_core(
   p_clinic uuid, p_treatment uuid, p_from date, p_to date, p_dentist uuid default null, p_step integer default 30
 ) returns table (slot_start timestamptz, slot_end timestamptz, slot_dentist uuid, slot_cabinet uuid)
 language plpgsql stable security definer set search_path = ''
@@ -97,7 +98,6 @@ declare
   v_tz text;
   v_dur integer;
 begin
-  if not public.is_staff(p_clinic) then raise exception 'FORBIDDEN' using errcode = 'P0001'; end if;
   if p_to < p_from or p_to - p_from > 31 then raise exception 'BAD_RANGE' using errcode = 'P0001'; end if;
   if p_step < 15 or p_step % 15 <> 0 then raise exception 'BAD_STEP' using errcode = 'P0001'; end if;
   v_tz := public.local_tz(p_clinic);
@@ -159,6 +159,17 @@ begin
         and tstzrange(o.starts_at, o.ends_at) && tstzrange(c.c_start, c.c_start + make_interval(mins => v_dur))
     )
   order by c.c_start, c.c_dentist;
+end $$;
+revoke all on function public.slots_core(uuid, uuid, date, date, uuid, integer) from public, anon, authenticated;
+
+create function public.available_slots(
+  p_clinic uuid, p_treatment uuid, p_from date, p_to date, p_dentist uuid default null, p_step integer default 30
+) returns table (slot_start timestamptz, slot_end timestamptz, slot_dentist uuid, slot_cabinet uuid)
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if not public.is_staff(p_clinic) then raise exception 'FORBIDDEN' using errcode = 'P0001'; end if;
+  return query select * from public.slots_core(p_clinic, p_treatment, p_from, p_to, p_dentist, p_step);
 end $$;
 
 /* ───────── Crear ───────── */
