@@ -146,7 +146,7 @@ max_catalogs = 2
 
 # Store vector embeddings in S3 for large and durable datasets
 [storage.vector]
-enabled = true
+enabled = false
 max_buckets = 10
 max_indexes = 5
 
@@ -218,8 +218,10 @@ web3 = 30
 # secret = ""
 
 [auth.email]
+# Ojo: en Supabase esto habilita el PROVEEDOR de correo (login con correo y contrasena), no el registro publico.
+# El registro publico se apaga con [auth] enable_signup = false.
 # Allow/disallow new user signups via email to your project.
-enable_signup = false
+enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true

@@ -6,10 +6,13 @@ set search_path = public, extensions;
 insert into public.clinics (id, slug, name, legal_name, address, timezone, allow_draft_legal)
 values ('00000000-0000-4000-8000-0000000000c1', 'alquimia-dev', 'Alquimia Dental (dev)', 'Clinica Odontologica Alquimia Dental [draft]', 'San Miguel, La Paz [draft]', 'America/La_Paz', true);
 
-insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+-- Tokens en '' y created_at/updated_at con valor (no NULL): GoTrue falla con "Database error querying schema" si son NULL.
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+  confirmation_token, recovery_token, email_change_token_new, email_change, email_change_token_current, reauthentication_token, phone_change, phone_change_token, created_at, updated_at)
 select u.id::uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', u.email,
   extensions.crypt('DevOnly-Alquimia-2026!', extensions.gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('full_name', u.full_name)
+  '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('full_name', u.full_name),
+  '', '', '', '', '', '', '', '', now(), now()
 from (values
   ('00000000-0000-4000-8000-0000000000a1', 'doc@alquimia.test', 'Doc [draft]'),
   ('00000000-0000-4000-8000-0000000000a2', 'valeria@alquimia.test', 'Dra. Valeria Mamani [draft]'),
@@ -17,8 +20,9 @@ from (values
   ('00000000-0000-4000-8000-0000000000a4', 'paola@alquimia.test', 'Paola Condori [draft]')
 ) as u (id, email, full_name);
 
-insert into auth.identities (user_id, provider_id, identity_data, provider, last_sign_in_at)
-select id, id::text, jsonb_build_object('sub', id::text, 'email', email), 'email', now() from auth.users;
+-- created_at/updated_at no pueden ir NULL: GoTrue los lee como fechas obligatorias al iniciar sesion.
+insert into auth.identities (user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+select id, id::text, jsonb_build_object('sub', id::text, 'email', email, 'email_verified', true), 'email', now(), now(), now() from auth.users;
 
 insert into public.clinic_members (clinic_id, user_id, role, title) values
   ('00000000-0000-4000-8000-0000000000c1', '00000000-0000-4000-8000-0000000000a1', 'clinic_admin', 'Director clinico'),

@@ -19,6 +19,8 @@ create table auth.users (
   email_confirmed_at timestamptz,
   confirmation_token text default '', recovery_token text default '',
   email_change_token_new text default '', email_change text default '',
+  email_change_token_current text default '', reauthentication_token text default '',
+  phone_change text default '', phone_change_token text default '',
   raw_app_meta_data jsonb default '{}',
   raw_user_meta_data jsonb default '{}',
   created_at timestamptz default now(),
