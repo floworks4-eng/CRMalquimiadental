@@ -3,3 +3,7 @@ export const normalizeName = (s: string) => s.normalize('NFD').replace(/\p{M}/gu
 
 /** Deja solo letras, numeros, espacio y +: seguro para armar filtros de PostgREST sin escapar comas ni parentesis. */
 export const searchTerm = (s: string) => normalizeName(s).replace(/[^\p{L}\p{N} +]/gu, '').slice(0, 60)
+
+/** 'Valeria Mamani' -> 'VM' (avatar). */
+export const initials = (name: string) =>
+  name.split(/\s+/).filter((w) => w && !/^(dr|dra|lic)\.?$/i.test(w)).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '·'

@@ -6,7 +6,7 @@ Resumen operativo. El detalle y los criterios de aceptación están en [`fase1-b
 
 | Rama / tag | Uso |
 |---|---|
-| `demo-v1` (tag) y `demo` (rama) | Demo comercial congelada: datos ficticios en `localStorage`. Se sigue desplegando desde aquí para ventas |
+| `demo-v1` (tag) y `demo` (rama) | Demo comercial congelada: datos ficticios en `localStorage`. No se toca |
 | `main` | Producción (Fase 1). Protegida: solo por PR con CI verde |
 | `staging` | Pruebas y UAT con datos ficticios o anonimizados |
 | `feat/F1-xx-*` | Una tarea o grupo de tareas del brief |
@@ -18,10 +18,10 @@ Nunca se copian datos de producción a staging sin anonimizar ni se prueba con d
 - **Servidor primero:** lecturas en Server Components, escrituras en Server Actions o RPC de Postgres.
 - **RLS como defensa principal**; las acciones revalidan permiso y reglas.
 - **DTOs explícitos** por pantalla y rol. El navegador nunca recibe un registro clínico completo.
-- **Una transacción por caso de uso** (check-in, reserva pública, cierre de atención, cierre de caja), idempotente.
+- **Una transacción por caso de uso** (iniciar y cerrar atención, cobrar, anular, caja, stock), idempotente donde hay dinero.
 - Fechas en UTC (`timestamptz`), visualización en `America/La_Paz`. Dinero en centavos enteros (BOB).
 
-## Estado actual (Sprint 1)
+## Sprint 1 — Fundación
 
 Base de datos (`supabase/migrations`, aplicadas en orden por `supabase db reset`):
 
@@ -38,8 +38,8 @@ Base de datos (`supabase/migrations`, aplicadas en orden por `supabase db reset`
 | 0009 | `accept_invite()` atomica, solo `service_role` |
 
 Servidor (`src/server`): clientes Supabase (`server`, `admin` con `server-only`, `proxy`), `auth/{session,guards,permissions}`,
-Server Actions de autenticacion e invitaciones, esquemas Zod. Rutas nuevas: `/login`, `/mfa`, `/recuperar`, `/recuperar/nueva`,
-`/invitacion/[token]`, `/forbidden`, `/cuenta`, `/api/auth/callback`. La demo sigue en las demas rutas hasta que cada vertical la reemplace.
+Server Actions de autenticacion e invitaciones, esquemas Zod. Rutas: `/login`, `/recuperar`, `/recuperar/nueva`,
+`/invitacion/[token]`, `/forbidden`, `/cuenta`, `/api/auth/callback`.
 
 ## Sprint 2 — Pacientes y agenda
 
@@ -54,36 +54,66 @@ Migracion `0010_agenda.sql`: `appointment_events`, `notifications`, `within_avai
 - Maquina de estados en SQL con espejo en `src/lib/domain/status.ts`; `supabase/tests/status-parity.test.ts` verifica las 147 combinaciones.
 - Pantallas reales: `/agenda` (rejilla por gabinete con teclado, pestañas ARIA en celular), `/pacientes` (busqueda, filtros, paginacion, alta),
   `/pacientes/[id]`, `/recepcion` (sala de espera por orden de llegada, actualiza cada 10 s), campana de notificaciones (cada 15 s).
-- Rutas: la demo vive ahora en `src/app/(demo)` (inicio, consulta, caja, inventario, whatsapp, analitica, ingesta, equipo, ruta); lo real, en `src/app/(app)`.
 
-## Sprint 3 — Check-in y portal publico
 
-Migracion `0011_checkin_public.sql`: `consent_versions` (texto inmutable + huella SHA-256), `patient_consents` (evidencia: version,
-huella, firma, IP en hash), `checkin_tokens` (solo el hash; un uso; vence 2 h despues de la cita), `checkin_submissions`,
-`attribution_touches`, `rate_limit_events`. RPC: `issue_checkin_token` (recepcion/admin), `checkin_context`, `checkin_target`,
-`submit_checkin`, `public_slots`, `public_book`, `public_consent_texts`, `rate_limit_hit`.
+## Sprint 3 — Check-in y portal publico (retirado)
 
-- **Las RPC publicas solo las ejecuta `service_role`** (el servidor de Next). `anon` no tiene ningun permiso: el navegador del paciente
-  nunca habla con PostgREST. Desviacion del brief, que preveia `anon` con EXECUTE.
-- **Fail closed legal:** sin un consentimiento aprobado (no borrador) no hay check-in ni reserva. En desarrollo se permite con
-  `clinics.allow_draft_legal` (solo en el seed).
-- Check-in: QR en `/recepcion` → `/c/[token]` en el celular del paciente → 3 pasos (datos, salud, consentimiento + firma dibujada) →
-  firma a Storage → RPC atomica (anamnesis v+1, consentimientos, cita en sala de espera, avisos). Si la RPC falla, la firma se borra.
-  El odontologo recibe la alerta con alergias; recepcion solo que el paciente llego.
-- Reserva publica `/reservar`: tratamientos marcados `bookable_online`, horarios sin datos de odontologos, reserva atomica que prueba
-  odontologo/gabinete libres hasta que uno acepta, dedupe por celular (max. 3 citas vigentes), atribucion UTM, enlace de check-in.
-- Limites: check-in 5/10 min por enlace y 20/h por IP; reservas 10/h por IP y 5/h por celular. Turnstile queda para el Sprint 5.
-- Ficha del paciente: tarjeta de anamnesis con alerta de alergias y "Marcar como revisada" (solo roles clinicos; para recepcion el
-  bloque ni siquiera se envia al navegador).
-- Paginas `/consentimiento` (textos vigentes desde la base) y `/privacidad` (borrador tecnico marcado; el texto legal lo redacta un abogado).
-- Se eliminaron `/check-in` y `/agendar-cita` de la demo.
+Se construyo (migracion 0011: check-in por QR, reserva en linea, consentimientos firmados, atribucion) y se **retiro en la
+primera version** por decision de la clinica: el sistema es solo para el personal. La migracion 0013 elimina esas tablas y
+funciones; el historial queda en git (commit `d1662df`).
+
+## Primera version (24/10/2026) — decisiones de la clinica
+
+1. **Solo personal.** Sin paginas publicas: todo el sitio exige sesion (`src/proxy.ts`, lista corta de rutas publicas: login,
+   recuperar, invitacion, configuracion inicial). La anamnesis la carga el equipo en la ficha (nueva version, no se sobrescribe).
+2. **Sin verificacion en dos pasos.** `has_mfa()` responde "hay sesion" (0013). Para volver a exigirla basta con restaurar su
+   version de 0006 y la pantalla `/mfa` (historial de git); las politicas no cambian.
+3. **Sin demo.** Se eliminaron las pantallas con datos en `localStorage`, el odontograma 3D y sus dependencias (three, R3F).
+4. **Base vacia al empezar.** `/configuracion-inicial` crea la clinica y el administrador (RPC `setup_clinic`, solo
+   `service_role`, bloqueo para envios simultaneos) y se cierra sola. Deja horario base y un gabinete, editables.
+
+## Sprint 4 — Consulta, caja e inventario
+
+Migracion `0014_consulta_caja_inventario.sql`:
+
+| Tabla / funcion | Para que |
+|---|---|
+| `encounter_addenda` | Correcciones a una atencion cerrada (con motivo); la historia cerrada no se edita |
+| `supply_lots`, `stock_movements`, `v_stock` | Stock por lote. El saldo solo cambia por movimientos (trigger); el lote nunca queda negativo |
+| `invoices`, `invoice_items`, `invoice_counters` | Factura interna `ALQ-AAAA-000001` por clinica y año; precio congelado |
+| `payments`, `transactions`, `cash_sessions` | Cobros, libro de caja (no se edita: se corrige con otro movimiento), una caja abierta por clinica |
+| `operation_results` | Respuesta guardada por clave de idempotencia |
+| `start_encounter` | Desde programada/confirmada/en sala; el tratamiento de la cita entra al plan "hoy" |
+| `finish_encounter` | Todo o nada: factura, insumos FEFO, pago, plan, cita, auditoria, aviso de stock bajo; `STOCK_SHORTAGE` con lista |
+| `record_payment`, `void_payment` | Cobrar saldo; anular (solo admin, motivo, movimiento negativo) |
+| `open_cash_session`, `close_cash_session`, `cash_expected`, `add_cash_movement` | Caja: esperado = fondo + entradas − salidas en efectivo |
+| `receive_stock`, `adjust_stock` | Ingreso por lote (admin); ajuste, merma o devolucion con motivo |
+
+- Plan: `in_progress` = se hace hoy, `planned` = proxima sesion, `done` lo marca solo `finish_encounter`. El precio lo pone un
+  trigger con la tarifa vigente: el navegador no lo decide.
+- Si entra efectivo sin caja abierta, se abre sola con fondo 0 y se avisa al admin.
+- Descuentos: solo admin y con motivo.
+
+Pantallas: `/inicio`, `/consulta`, `/consulta/[cita]`, `/caja`, `/inventario`, `/configuracion` (clinica, horarios y gabinetes,
+tratamientos y recetas, equipo y turnos, importar pacientes), ficha del paciente con historia clinica y cuenta.
+
+## Sprint 5 — Endurecimiento
+
+- Cabeceras: CSP (`connect-src 'self'`: el navegador nunca habla con Supabase), `frame-ancestors 'none'`, `nosniff`,
+  `Referrer-Policy`, `Permissions-Policy`, `X-Robots-Tag: noindex`, HSTS en https, sin `X-Powered-By` (`next.config.ts`).
+- Importador CSV de pacientes con vista previa, validacion igual al alta manual, deduplicacion por celular y auditoria.
+- Runbooks en [`operacion.md`](operacion.md).
 
 ## Como se verifica sin Docker
 
 `supabase/tests/` corre las migraciones y el seed en **PGlite** (Postgres en WASM) sobre una emulacion minima de Supabase
-(`supabase-shim.sql`: roles, `auth.uid()/jwt()`, `storage`). Cubre RLS por rol, MFA (aal1/aal2), aislamiento entre clinicas y
-odontologos, restricciones de agenda, triggers y auditoria. **No sustituye** una corrida contra Supabase real: `db reset` y `db lint`
-con Docker, y el flujo de login/TOTP contra GoTrue, siguen pendientes (ver `docs/seguridad.md`).
+(`supabase-shim.sql`: roles, `auth.uid()/jwt()`, `storage`). Cubre RLS por rol, aislamiento entre clinicas y odontologos,
+agenda, consulta, facturacion, caja, inventario, triggers y auditoria.
+
+Ademas, el 24/10/2026 se verifico contra el **Supabase real** (proyecto CRMdoc): las 16 migraciones aplicadas, `db lint` limpio y
+un flujo completo con usuarios temporales (configuracion inicial, invitaciones, cita, llegada, atencion, factura con pago
+parcial, reintento sin doble cobro, descuento de stock, caja que se abre sola, cobro del saldo, gasto, cierre cuadrado,
+auditoria). Despues se vacio la base.
 
 ## Desviaciones deliberadas del brief
 
@@ -93,6 +123,6 @@ con Docker, y el flujo de login/TOTP contra GoTrue, siguen pendientes (ver `docs
    viven en otras tablas, por eso Recepcion los ve sin riesgo.
 3. **Invitaciones:** se usa un token propio (hash en `member_invites`) y `auth.admin.createUser` al aceptar, en lugar de `inviteUserByEmail`,
    porque este ultimo no soporta PKCE y entrega los tokens en el fragmento de la URL, ilegible para el servidor. El enlace se muestra al admin
-   para compartirlo; el envio por correo (Resend) queda para despues.
+   para compartirlo por WhatsApp o correo.
 4. **`pgcrypto`** solo se usa en el seed; hashes y UUID usan funciones nativas (`sha256`, `gen_random_uuid`). `pg_trgm` no se instala (no hace falta en Fase 1).
 5. **Acciones de auditoria** se nombran `tabla.create|update|delete` (p. ej. `patients.create`).

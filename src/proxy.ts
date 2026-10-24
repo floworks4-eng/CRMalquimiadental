@@ -2,16 +2,16 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { hasSupabaseEnv } from '@/server/env'
 import { updateSession } from '@/server/supabase/proxy'
 
-// Rutas reales que exigen sesion. Crece a medida que cada vertical reemplaza su pantalla de la demo
-// (la demo sigue publica en `demo`; ver docs/arquitectura.md). Cada pagina ademas valida con guards de servidor.
-const PRIVATE_PREFIXES = ['/cuenta', '/mfa', '/auditoria', '/configuracion', '/agenda', '/pacientes', '/recepcion']
+// Todo el sistema es privado (solo el equipo de la clinica). Estas son las unicas rutas sin sesion.
+// Cada pagina ademas valida con guards de servidor; esto solo evita renderizar de mas.
+const PUBLIC_PREFIXES = ['/login', '/recuperar', '/invitacion', '/configuracion-inicial', '/api/auth', '/api/health', '/forbidden']
 
 export async function proxy(request: NextRequest) {
-  if (!hasSupabaseEnv()) return NextResponse.next() // demo local sin Supabase
+  if (!hasSupabaseEnv()) return NextResponse.next() // sin Supabase cada pagina muestra como configurarlo
   const { response, claims } = await updateSession(request)
 
   const path = request.nextUrl.pathname
-  if (!claims && PRIVATE_PREFIXES.some((p) => path === p || path.startsWith(p + '/'))) {
+  if (!claims && !PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p + '/'))) {
     const redirect = NextResponse.redirect(new URL('/login', request.url))
     for (const c of response().cookies.getAll()) redirect.cookies.set(c) // conserva cookies refrescadas
     return redirect

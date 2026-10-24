@@ -1,14 +1,18 @@
+import Link from 'next/link'
 import { signOut } from '@/server/actions/auth'
 import { requireMember } from '@/server/auth/guards'
-import { CAPABILITIES, ROLE_LABEL, scope, type Capability } from '@/server/auth/permissions'
+import { ROLE_LABEL, type Role } from '@/server/auth/permissions'
 
 export const metadata = { title: 'Mi cuenta · Alquimia Dental', robots: { index: false } }
 
-const SCOPE_TEXT = { all: 'Todo', own: 'Solo lo suyo' } as const
+const WHAT: Record<Role, string[]> = {
+  clinic_admin: ['Todo el sistema: agenda, pacientes e historias clínicas, consulta, caja, inventario y configuración.', 'Invitar y desactivar personas del equipo.', 'Descuentos, anulación de cobros y ajustes de stock.'],
+  dentist: ['Su agenda y sus pacientes (los que tiene asignados o con cita).', 'Historia clínica, odontograma, plan de tratamiento y cierre de la atención con cobro.', 'Ver el inventario.'],
+  reception: ['Agenda de todos, recepción de pacientes y fichas de contacto.', 'Caja: cobros, gastos, apertura y cierre.', 'No ve datos clínicos (anamnesis, odontograma, notas).'],
+}
 
 export default async function CuentaPage() {
   const s = await requireMember()
-  const caps = (Object.keys(CAPABILITIES) as Capability[]).filter((c) => scope(s.member.role, c) !== 'none')
   return (
     <div className="mx-auto max-w-2xl">
       <section className="glass p-6">
@@ -17,21 +21,17 @@ export default async function CuentaPage() {
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
           <div><dt className="eyebrow">Clínica</dt><dd className="mt-1 text-bone">{s.member.clinicName}</dd></div>
           <div><dt className="eyebrow">Rol</dt><dd className="mt-1 text-bone">{ROLE_LABEL[s.member.role]}</dd></div>
-          <div><dt className="eyebrow">Verificación en dos pasos</dt><dd className="mt-1 text-ok">✓ Activa</dd></div>
+          <div><dt className="eyebrow">Correo</dt><dd className="mt-1 break-all text-bone">{s.email}</dd></div>
         </dl>
       </section>
       <section className="glass mt-5 p-6">
         <h2 className="title-gold text-lg">Lo que puedes hacer</h2>
-        <ul className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
-          {caps.map((c) => (
-            <li key={c} className="flex justify-between gap-2 border-b border-white/6 pb-1.5">
-              <span className="num text-muted">{c}</span>
-              <span className="text-bone">{SCOPE_TEXT[scope(s.member.role, c) as 'all' | 'own']}</span>
-            </li>
-          ))}
-        </ul>
+        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-bone">{WHAT[s.member.role].map((w) => <li key={w}>{w}</li>)}</ul>
       </section>
-      <form action={signOut} className="mt-6"><button className="btn btn-secondary">Cerrar sesión</button></form>
+      <div className="mt-6 flex flex-wrap gap-2">
+        <Link href="/recuperar/nueva" className="btn btn-secondary">Cambiar contraseña</Link>
+        <form action={signOut}><button className="btn btn-ghost">Cerrar sesión</button></form>
+      </div>
     </div>
   )
 }

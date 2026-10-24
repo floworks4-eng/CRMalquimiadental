@@ -1,13 +1,19 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, Users, ConciergeBell, UserRound, LogOut, type LucideIcon } from 'lucide-react'
+import { useState } from 'react'
+import {
+  CalendarDays, Users, ConciergeBell, UserRound, LogOut, LayoutDashboard, Stethoscope, Wallet, Package, Settings, Menu, type LucideIcon,
+} from 'lucide-react'
 import { signOut } from '@/server/actions/auth'
 import { Avatar, Wordmark } from './ui'
 import { NotificationBell } from './notification-bell'
 import type { NotificationItem } from '@/server/actions/agenda'
 
-const ICONS: Record<string, LucideIcon> = { agenda: CalendarDays, pacientes: Users, recepcion: ConciergeBell, cuenta: UserRound }
+const ICONS = {
+  inicio: LayoutDashboard, agenda: CalendarDays, consulta: Stethoscope, recepcion: ConciergeBell, pacientes: Users, caja: Wallet,
+  inventario: Package, configuracion: Settings, cuenta: UserRound,
+} satisfies Record<string, LucideIcon>
 export type NavItem = { href: string; label: string; icon: keyof typeof ICONS }
 
 export function AppShell({ user, clinic, items, notifications, children }: {
@@ -19,12 +25,15 @@ export function AppShell({ user, clinic, items, notifications, children }: {
 }) {
   const path = usePathname()
   const active = (href: string) => path === href || path.startsWith(href + '/')
+  const [more, setMore] = useState(false)
+  // En el celular: 4 accesos fijos + "Más" con el resto.
   const mobile = items.slice(0, 4)
+  const rest = items.slice(4)
   return (
     <div className="md:flex">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 btn btn-secondary">Saltar al contenido</a>
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-white/8 bg-black/15 px-4 py-6 backdrop-blur-xl md:flex">
-        <Link href="/agenda" className="mb-8 px-2"><Wordmark /></Link>
+        <Link href="/inicio" className="mb-8 px-2"><Wordmark /></Link>
         <nav aria-label="Principal" className="flex-1 space-y-1">
           {items.map(({ href, label, icon }) => {
             const Icon = ICONS[icon]
@@ -47,7 +56,7 @@ export function AppShell({ user, clinic, items, notifications, children }: {
 
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-white/6 bg-[#1e1f21]/70 px-4 py-3 backdrop-blur-xl md:px-8">
-          <Link href="/agenda" className="md:hidden" aria-label="Agenda"><Wordmark /></Link>
+          <Link href="/inicio" className="md:hidden" aria-label="Inicio"><Wordmark /></Link>
           <p className="hidden text-sm text-muted md:block">{clinic}</p>
           <div className="flex items-center gap-1">
             <NotificationBell initial={notifications} />
@@ -58,7 +67,7 @@ export function AppShell({ user, clinic, items, notifications, children }: {
       </div>
 
       <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-40 grid border-t border-white/10 bg-[#1e1f21]/85 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur-xl md:hidden"
-        style={{ gridTemplateColumns: `repeat(${mobile.length}, minmax(0, 1fr))` }}>
+        style={{ gridTemplateColumns: `repeat(${mobile.length + (rest.length ? 1 : 0)}, minmax(0, 1fr))` }}>
         {mobile.map(({ href, label, icon }) => {
           const Icon = ICONS[icon]
           return (
@@ -68,7 +77,26 @@ export function AppShell({ user, clinic, items, notifications, children }: {
             </Link>
           )
         })}
+        {rest.length > 0 && (
+          <button type="button" aria-expanded={more} aria-controls="more-nav" onClick={() => setMore((v) => !v)}
+            className={`flex flex-col items-center gap-1 rounded-xl py-1.5 text-[0.7rem] ${more || rest.some((i) => active(i.href)) ? 'text-gold' : 'text-muted'}`}>
+            <Menu size={21} strokeWidth={1.5} aria-hidden />Más
+          </button>
+        )}
       </nav>
+      {more && (
+        <div id="more-nav" className="glass glass-strong fixed inset-x-3 bottom-20 z-40 grid grid-cols-3 gap-2 p-3 md:hidden">
+          {rest.map(({ href, label, icon }) => {
+            const Icon = ICONS[icon]
+            return (
+              <Link key={href} href={href} onClick={() => setMore(false)} aria-current={active(href) ? 'page' : undefined}
+                className={`flex flex-col items-center gap-1 rounded-xl py-2 text-xs ${active(href) ? 'bg-white/8 text-gold' : 'text-muted'}`}>
+                <Icon size={20} strokeWidth={1.5} aria-hidden />{label}
+              </Link>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

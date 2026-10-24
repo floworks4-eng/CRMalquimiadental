@@ -1,7 +1,5 @@
 // Telefonos: se aceptan espacios/guiones/+/00 al escribir y se normalizan a E.164 (+591 + 8 digitos que empiezan en 6 o 7).
 export const BO_MOBILE = /^\+591[67]\d{7}$/
-// Compatibilidad con las pantallas de la demo.
-export const PHONE_RE = /^\+?591[67]\d{7}$/
 
 export function normalizeBoPhone(raw: string): string | null {
   let d = raw.replace(/[\s().-]/g, '')

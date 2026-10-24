@@ -75,13 +75,10 @@ describe('G1 · Recepcion no ve datos clinicos', () => {
     const role = await as(db, reception, (tx) => tx.query("update public.clinic_members set role = 'clinic_admin' where user_id = $1", [ID.reception]))
     expect(role.affectedRows).toBe(0)
   })
-  it('sin MFA (aal1) no ve ni pacientes ni agenda ni catalogo', async () => {
+  it('sin segundo factor (decision de la clinica, 0013) ve lo mismo que con el: el rol es lo que limita', async () => {
     const aal1 = { uid: ID.reception, aal: 'aal1' as const }
-    for (const t of ['patients', 'appointments', 'treatments', 'cabinets']) expect(await count(aal1, t), t).toBe(0)
-  })
-  it('sin MFA todavia ve su propia membresia (el servidor lo manda a /mfa)', async () => {
-    const r = await rows(db, { uid: ID.reception, aal: 'aal1' }, 'select role from public.clinic_members')
-    expect(r).toEqual([{ role: 'reception' }])
+    for (const t of ['patients', 'appointments', 'treatments', 'cabinets']) expect(await count(aal1, t), t).toBe(await count(reception, t))
+    expect(await count(aal1, 'anamnesis_versions')).toBe(0)
   })
 })
 
@@ -131,10 +128,6 @@ describe('G1 · el administrador ve todo', () => {
   })
   it('lee la auditoria', async () => {
     expect(await count(admin, 'audit_log')).toBeGreaterThan(0)
-  })
-  it('sin MFA no ve datos de salud ni auditoria', async () => {
-    const aal1 = { uid: ID.admin, aal: 'aal1' as const }
-    for (const t of ['patients', 'anamnesis_versions', 'encounters', 'audit_log']) expect(await count(aal1, t), t).toBe(0)
   })
 })
 

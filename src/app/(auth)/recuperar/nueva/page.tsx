@@ -10,7 +10,7 @@ export default async function NuevaContrasenaPage() {
   if (!hasSupabaseEnv()) return <SupabaseMissing />
   await requireSession()
   return (
-    <AuthCard title="Contraseña nueva" subtitle="Después te pediremos tu código de verificación.">
+    <AuthCard title="Contraseña nueva" subtitle="Elige una contraseña nueva para tu cuenta.">
       <NewPasswordForm />
     </AuthCard>
   )

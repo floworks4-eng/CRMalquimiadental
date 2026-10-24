@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { acceptInviteSchema, inviteSchema, mfaVerifySchema, password, signInSchema } from './auth'
+import { acceptInviteSchema, inviteSchema, password, setupSchema, signInSchema } from './auth'
 
 describe('schemas de auth', () => {
   it('normaliza el correo', () => {
@@ -12,9 +12,11 @@ describe('schemas de auth', () => {
     expect(password.safeParse('a'.repeat(12)).success).toBe(true)
     expect(password.safeParse('a'.repeat(73)).success).toBe(false)
   })
-  it('codigo TOTP de exactamente 6 digitos', () => {
-    for (const c of ['12345', '1234567', '12a456', '']) expect(mfaVerifySchema.safeParse({ code: c }).success, c).toBe(false)
-    expect(mfaVerifySchema.safeParse({ code: ' 123456 ' }).success).toBe(true)
+  it('configuracion inicial: las dos contrasenas deben coincidir', () => {
+    const ok = { clinicName: 'Alquimia Dental', fullName: 'Dr. Ejemplo', email: 'doc@example.com', password: 'una-clave-larga', confirm: 'una-clave-larga' }
+    expect(setupSchema.safeParse(ok).success).toBe(true)
+    const bad = setupSchema.safeParse({ ...ok, confirm: 'otra-clave-larga' })
+    expect(!bad.success && bad.error.issues[0].path).toEqual(['confirm'])
   })
   it('el rol de una invitacion es uno de los tres', () => {
     expect(inviteSchema.safeParse({ email: 'a@b.co', role: 'superadmin' }).success).toBe(false)

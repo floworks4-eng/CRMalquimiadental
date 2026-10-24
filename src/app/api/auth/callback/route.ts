@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/server/supabase/server'
 
 // Solo rutas internas: evita que ?next= se use como redireccion abierta.
-const safeNext = (next: string | null) => (next && /^\/(?!\/)[\w\-/]*$/.test(next) ? next : '/mfa')
+const safeNext = (next: string | null) => (next && /^\/(?!\/)[\w\-/]*$/.test(next) ? next : '/inicio')
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl

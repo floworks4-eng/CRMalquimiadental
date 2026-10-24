@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
-import { MessageCircle, Globe, Megaphone, Archive, X, Lock } from 'lucide-react'
-import { SOURCE_LABEL, STATUS_LABEL, initials, type ApptStatus, type PatientSource } from '@/lib/data'
+import { X, Lock } from 'lucide-react'
+import { initials } from '@/lib/domain/text'
 
 export function Card({ children, className = '', title, action, as: Tag = 'section' }: {
   children: ReactNode; className?: string; title?: ReactNode; action?: ReactNode; as?: 'section' | 'div'
@@ -28,43 +28,6 @@ export function PageHeader({ eyebrow, title, children }: { eyebrow?: string; tit
       </div>
       {children && <div className="flex flex-wrap gap-2">{children}</div>}
     </div>
-  )
-}
-
-const SOURCE_ICON = { whatsapp: MessageCircle, web: Globe, campaign: Megaphone, historico: Archive }
-export function SourceChip({ source, campaign }: { source: PatientSource; campaign?: string }) {
-  const Icon = SOURCE_ICON[source]
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.7rem] font-medium whitespace-nowrap ${
-        source === 'campaign' ? 'border-gold/50 text-gold-soft' : source === 'whatsapp' ? 'border-azure/50 text-[#9cc0ff]' : 'border-white/15 text-muted'
-      }`}
-      title={campaign ? `Campaña: ${campaign}` : undefined}
-    >
-      <Icon size={12} aria-hidden />
-      {SOURCE_LABEL[source]}
-    </span>
-  )
-}
-
-const STATUS_STYLE: Record<ApptStatus, string> = {
-  agendada: 'text-muted border-white/15',
-  confirmada: 'text-bone border-white/25',
-  en_espera: 'text-warn border-warn/50 bg-warn/10',
-  en_atencion: 'text-[#9cc0ff] border-azure/60 bg-azure/10',
-  atendida: 'text-ok border-ok/40 bg-ok/10',
-  no_asistio: 'text-bad border-bad/40',
-  cancelada: 'text-muted border-white/10 line-through',
-}
-const STATUS_DOT: Record<ApptStatus, string> = {
-  agendada: '○', confirmada: '●', en_espera: '◐', en_atencion: '▶', atendida: '✓', no_asistio: '✕', cancelada: '–',
-}
-export function StatusBadge({ status }: { status: ApptStatus }) {
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.7rem] font-medium whitespace-nowrap ${STATUS_STYLE[status]}`}>
-      <span aria-hidden>{STATUS_DOT[status]}</span>
-      {STATUS_LABEL[status]}
-    </span>
   )
 }
 

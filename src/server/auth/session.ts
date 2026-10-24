@@ -7,11 +7,10 @@ export type Session = {
   userId: string
   email: string | null
   fullName: string | null
-  aal: 'aal1' | 'aal2'
   member: { clinicId: string; clinicName: string; role: Role; title: string | null } | null
 }
 
-/** Sesion verificada (firma del JWT) + membresia. RLS deja a cada usuario leer su propia membresia aun sin MFA. */
+/** Sesion verificada (firma del JWT) + membresia. */
 export const getSession = cache(async (): Promise<Session | null> => {
   const supabase = await createClient()
   const { data } = await supabase.auth.getClaims()
@@ -31,7 +30,6 @@ export const getSession = cache(async (): Promise<Session | null> => {
     userId: claims.sub,
     email: (claims.email as string | undefined) ?? null,
     fullName: profile?.full_name ?? null,
-    aal: claims.aal === 'aal2' ? 'aal2' : 'aal1',
     member: m ? { clinicId: m.clinic_id, clinicName, role: m.role as Role, title: m.title } : null,
   }
 })

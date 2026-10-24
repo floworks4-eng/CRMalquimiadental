@@ -6,7 +6,7 @@ import { todayLaPaz } from '@/lib/domain/time'
 export const metadata = { title: 'Recepción · Alquimia Dental' }
 
 export default async function RecepcionPage() {
-  const s = await requireCapability('checkin.issue')
+  const s = await requireCapability('reception.board')
   const date = todayLaPaz()
   const board = await getDayBoard(date)
   return <ReceptionBoard date={date} appointments={board.appointments} role={s.member.role} />

@@ -78,3 +78,56 @@ export async function reviewAnamnesis(input: unknown): Promise<ActionResult> {
   revalidatePath(`/pacientes/${p.data.patientId}`)
   return ok(undefined)
 }
+
+export type ImportRow = { fullName: string; phone: string; birthDate?: string; sex?: string; zone?: string; address?: string; email?: string }
+export type ImportResult = { inserted: number; skipped: { row: number; reason: string }[] }
+
+/**
+ * Importa la lista historica de pacientes (planilla de la clinica). Cada fila se valida igual que el alta manual;
+ * se omiten los celulares que ya existen o que se repiten en el archivo. Queda auditado (trigger por fila + evento).
+ */
+export async function importPatients(input: unknown): Promise<ActionResult<ImportResult>> {
+  const p = z.object({ rows: z.array(z.record(z.string(), z.string().optional())).min(1, 'El archivo no tiene filas.').max(2000, 'Máximo 2000 pacientes por archivo.') }).safeParse(input)
+  if (!p.success) return fail('VALIDATION', p.error.issues[0]?.message ?? 'Archivo no válido.')
+  const s = await requireCapability('settings.manage')
+  const supabase = await createClient()
+
+  const skipped: ImportResult['skipped'] = []
+  const valid: { row: number; data: z.infer<typeof patientSchema> }[] = []
+  p.data.rows.forEach((raw, i) => {
+    const r = patientSchema.safeParse({ ...raw, firstSource: 'historical' })
+    if (r.success) valid.push({ row: i + 2, data: r.data }) // +2: fila 1 es el encabezado
+    else skipped.push({ row: i + 2, reason: r.error.issues[0]?.message ?? 'Datos no válidos' })
+  })
+
+  const phones = valid.map((v) => v.data.phone)
+  const existing = new Set<string>()
+  for (let i = 0; i < phones.length; i += 200) {
+    const { data } = await supabase.from('patients').select('phone_e164').in('phone_e164', phones.slice(i, i + 200))
+    for (const x of (data ?? []) as { phone_e164: string }[]) existing.add(x.phone_e164)
+  }
+  const seen = new Set<string>()
+  const rows = valid.filter((v) => {
+    const dup = existing.has(v.data.phone) ? 'Ya existe un paciente con ese celular' : seen.has(v.data.phone) ? 'Celular repetido en el archivo' : null
+    if (dup) skipped.push({ row: v.row, reason: dup })
+    seen.add(v.data.phone)
+    return !dup
+  })
+
+  let inserted = 0
+  for (let i = 0; i < rows.length; i += 200) {
+    const { error, count } = await supabase.from('patients').insert(
+      rows.slice(i, i + 200).map(({ data: d }) => ({
+        clinic_id: s.member.clinicId, full_name: d.fullName, normalized_name: normalizeName(d.fullName), phone_e164: d.phone, phone_raw: d.phone,
+        email: d.email ?? null, birth_date: d.birthDate ?? null, sex: d.sex ?? null, zone: d.zone ?? null, address: d.address ?? null,
+        first_source: 'historical', created_by: s.userId,
+      })),
+      { count: 'exact' },
+    )
+    if (error) return fail('INTERNAL', `Se importaron ${inserted} pacientes y luego hubo un error. Revisa el archivo y vuelve a subirlo: los ya importados se omiten.`)
+    inserted += count ?? 0
+  }
+  await supabase.rpc('log_event', { p_clinic: s.member.clinicId, p_action: 'patients.import', p_entity_type: 'patients', p_meta: { inserted, skipped: skipped.length } })
+  revalidatePath('/pacientes')
+  return ok({ inserted, skipped: skipped.sort((a, b) => a.row - b.row) })
+}

@@ -81,6 +81,9 @@ function Body({ a, role, onChanged }: { a: AppointmentCard; role: Role; onChange
             </button>
           ))}
           {canMove && <button className="btn btn-secondary" onClick={() => setMoving(true)}>Reprogramar</button>}
+          {can(role, 'encounters.read') && a.status !== 'cancelled' && a.status !== 'no_show' && (
+            <Link href={`/consulta/${a.id}`} className="btn btn-primary">{a.status === 'completed' ? 'Ver atención' : a.status === 'in_progress' ? 'Continuar atención' : 'Abrir consulta'}</Link>
+          )}
           {a.patient && can(role, 'patients.read_directory') && <Link href={`/pacientes/${a.patient.id}`} className="btn btn-ghost ml-auto">Ver paciente →</Link>}
           {transitions.length === 0 && !canMove && <p className="text-sm text-muted">No hay acciones disponibles para tu rol en este estado.</p>}
         </div>

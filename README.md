@@ -1,59 +1,62 @@
-# Alquimia Dental · CRM/ERP clínico
+# Alquimia Dental · Sistema clínico
 
-> **Estado:** esta rama es la **versión real en construcción** (Fase 1, ver `docs/fase1-brief.md`). Requiere Supabase
-> (`.env.local` con `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`; ver `.env.example`).
-> Ya son reales: acceso con MFA, pacientes, agenda, recepción con QR de check-in, check-in del paciente (`/c/[token]`) y reservas en línea (`/reservar`). El resto de pantallas (inicio, consulta, caja, inventario…)
-> siguen siendo la demo con datos ficticios y se reemplazan en los próximos sprints. La demo comercial completa está en la rama `demo` (tag `demo-v1`).
+Sistema interno de Alquimia Dental (San Miguel, La Paz) para el Doc y su equipo. **Los pacientes no entran nunca**: todo lo
+maneja el personal de la clínica. Primera versión real, sobre Supabase (base de datos y acceso) y Next.js.
 
-Demo navegable **solo front-end** del sistema que Lumen Labs propone a Alquimia Dental (San Miguel, La Paz).
-Todos los datos de la demo son ficticios. Investigación y supuestos: [`docs/clinica.md`](docs/clinica.md).
+La demo comercial con datos ficticios quedó congelada en la rama `demo` (tag `demo-v1`).
 
-## Correr
+## Qué hace
+
+| Módulo | Quién | Qué |
+|---|---|---|
+| Inicio | todos | Citas del día, sala de espera, ingresos y saldos (caja), stock bajo, primeros pasos de configuración |
+| Agenda | todos (el odontólogo, solo la suya) | Citas por gabinete, horarios libres reales, reprogramar, cancelar, sin doble reserva |
+| Recepción | admin, recepción | Llegadas del día: confirmar, «Llegó» (sala de espera + aviso al odontólogo) |
+| Pacientes | todos (el odontólogo, solo los suyos) | Directorio, alta, ficha, anamnesis versionada, odontograma acumulado, plan pendiente, atenciones y cuenta |
+| Consulta | admin, odontólogo | Iniciar atención, hallazgos por pieza y superficie, plan (hoy / próximas sesiones), notas, insumos, **finalizar y cobrar** |
+| Caja | admin, recepción | Apertura, cobros y saldos, gastos, anulaciones (admin), arqueo y cierre con diferencia explicada |
+| Inventario | todos leen; admin escribe | Stock por lotes y vencimiento, ingresos, ajustes y mermas, movimientos |
+| Configuración | admin | Datos de la clínica, horario, feriados, gabinetes, tratamientos y precios, recetas de insumos, equipo y turnos, importar pacientes (CSV) |
+
+Al **finalizar una atención**, en una sola operación: factura con número correlativo, pago total o parcial, descuento de
+insumos (primero el lote que vence antes), cita «Atendida», plan actualizado y auditoría. Si faltan insumos no se cierra nada
+y se muestra qué falta. Un reintento (doble clic, red caída) nunca cobra dos veces.
+
+## Correr en local
 
 ```bash
 npm install
+cp .env.example .env.local   # completar con las llaves del proyecto de Supabase
 npm run dev
 ```
 
-Abrir http://localhost:3000. No necesita variables de entorno.
-Verificar: `npm run typecheck` y `npm run build`.
+Abrir http://localhost:3000. Con la base vacía, `/login` lleva a **Configuración inicial**: nombre de la clínica y la cuenta
+del administrador (el Doc). Se hace una sola vez. Después, «Primeros pasos» en Inicio guía el resto.
 
-## Desplegar en Vercel
+## Base de datos
+
+Migraciones en `supabase/migrations` (se aplican en orden). Contra el proyecto enlazado:
 
 ```bash
-npx vercel
+npx supabase db push --linked
 ```
 
-O importar la carpeta en vercel.com → framework Next.js (detectado solo) → Deploy. Sin configuración extra.
+`supabase/seed.dev.sql` son datos ficticios **solo para las pruebas automáticas**; nunca se cargan en el proyecto real.
 
-## Cómo mostrarla (5 min)
+## Verificar
 
-En la pantalla de entrada, **DEMO GUIADA · 5 MIN** reinicia los datos, entra como Administrador y muestra una tarjeta con «Siguiente»:
+```bash
+npm run typecheck && npm run lint && npm test && npm run test:e2e
+```
 
-1. **WhatsApp** → «Reproducir»: una paciente llega desde el anuncio, el asistente agenda y la cita aparece en la Agenda con origen WhatsApp.
-2. **Check-in QR** → en el celular simulado (a la derecha) se llena la anamnesis → «En sala de espera» + alerta a la doctora (campana).
-3. **Inicio** → INICIAR ATENCIÓN MÉDICA → odontograma 3D: marcar una caries y una corona; el plan se arma solo.
-4. **Finalizar atención** → baja el inventario, entra el cobro a caja, la cita queda atendida.
-5. **Analítica** → recorrido completo de la paciente: anuncio → WhatsApp → cita → atención → cobro.
+- `npm test`: reglas de negocio y permisos (RLS) sobre Postgres en memoria (PGlite), más unitarias.
+- `npm run test:e2e`: build de producción + Playwright (acceso sin sesión, cabeceras de seguridad).
 
-Roles: Administrador (todo), Odontólogo (solo su agenda y pacientes), Recepción (sin datos clínicos). Se cambia desde la entrada o el avatar.
+## Documentación
 
-## Qué es simulado
+- [`docs/arquitectura.md`](docs/arquitectura.md): capas, migraciones y decisiones.
+- [`docs/seguridad.md`](docs/seguridad.md): reglas, permisos por rol y estado verificado.
+- [`docs/operacion.md`](docs/operacion.md): puesta en marcha, respaldos, altas y bajas, rotación de llaves, incidentes.
+- [`docs/fase1-brief.md`](docs/fase1-brief.md): brief original de la Fase 1.
 
-- Sin backend: el estado vive en memoria + `localStorage` (por navegador). Las pestañas del mismo navegador se sincronizan (por eso el check-in en el celular simulado actualiza la recepción).
-- WhatsApp, recordatorios, Meta/TikTok, OCR y pagos son simulados. No se envía nada.
-- Escanear el QR con un celular real abre el formulario, pero ese celular no comparte datos con la laptop (sin backend).
-- Precios, horarios, cantidades de insumos y cifras de campañas son `[ejemplo]`.
-
-## Reiniciar la demo
-
-Botón **Reiniciar demo** (barra lateral o «Más» en celular). Además, los datos se regeneran solos cada día.
-
-## Estructura
-
-- `src/lib/data.ts` — tipos, store y todas las acciones (única capa de datos; se reemplaza por Supabase sin tocar pantallas).
-- `src/lib/seed.ts` — datos de ejemplo. `src/lib/teeth.ts` — numeración FDI.
-- `src/components/odontogram3d.tsx` — odontograma 3D (three + R3F, carga diferida); `odontogram.tsx` — interruptor 2D/3D y respaldo SVG si no hay WebGL.
-- `src/app/(app)/*` — pantallas internas. `src/app/check-in`, `src/app/agendar-cita` — páginas públicas.
-
-Demo preparada por Lumen Labs.
+Preparado por Lumen Labs.

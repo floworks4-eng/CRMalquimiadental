@@ -4,13 +4,15 @@ import { AuthCard, SupabaseMissing } from '@/components/auth-card'
 import { LoginForm } from '@/components/auth-forms'
 import { hasSupabaseEnv } from '@/server/env'
 import { getSession } from '@/server/auth/session'
+import { needsSetup } from '@/server/actions/setup'
 
 // Depende de variables de entorno y de la sesion: nunca se prerenderiza en el build.
 export const dynamic = 'force-dynamic'
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   if (!hasSupabaseEnv()) return <SupabaseMissing />
-  if (await getSession()) redirect('/mfa')
+  if (await needsSetup()) redirect('/configuracion-inicial')
+  if (await getSession()) redirect('/inicio')
   const { error } = await searchParams
   return (
     <AuthCard title="Ingresar" subtitle="Acceso del equipo de la clínica.">

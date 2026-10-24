@@ -131,7 +131,6 @@ describe('available_slots', () => {
     await expect(slots(reception, 'consulta', M, await day(40))).rejects.toThrow('BAD_RANGE')
     await expect(slots(reception, 'consulta', M, M, null, 20)).rejects.toThrow('BAD_STEP')
     await expect(rows(db, reception, 'select * from public.available_slots($1, $2, $3, $3)', [ID.clinic, ID.clinic, M])).rejects.toThrow('NOT_FOUND')
-    await expect(slots({ uid: ID.reception, aal: 'aal1' }, 'consulta', M)).rejects.toThrow('FORBIDDEN')
     await expect(slots('anon', 'consulta', M)).rejects.toThrow(/permission denied/)
     expect((await slots(dentistA, 'consulta', M)).length).toBeGreaterThan(0)
   })
@@ -207,7 +206,6 @@ describe('create_appointment', () => {
     await expect(create(dentistA, { patient: P(5), dentist: ID.dentistA, start: at(d, '15:00') })).rejects.toThrow('FORBIDDEN') // paciente ajeno
     await expect(create(dentistA, { patient: P(99 - 90), dentist: ID.dentistA, start: at(d, '15:00') })).rejects.toThrow('FORBIDDEN') // sin odontologo asignado
     await create(dentistA, { patient: P(1), dentist: ID.dentistA, cabinet: B1, start: at(d, '15:00') })
-    await expect(create({ uid: ID.reception, aal: 'aal1' }, { start: at(d, '16:00') })).rejects.toThrow('FORBIDDEN')
   })
   it('referencias invalidas', async () => {
     const d = await day(3)

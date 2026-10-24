@@ -7,6 +7,7 @@ import { publicEnv } from '../env'
 import { requireCapability } from '../auth/guards'
 import { fail, fieldErrors, ok, type ActionResult } from '../errors'
 import { acceptInviteSchema, inviteSchema } from '../schemas/auth'
+import { HOME } from '../auth/home'
 
 const INVITE_HOURS = 72
 const hashToken = (token: string) => '\\x' + createHash('sha256').update(token).digest('hex') // bytea para PostgREST
@@ -69,5 +70,5 @@ export async function acceptInvite(input: unknown): Promise<ActionResult> {
 
   const supabase = await createClient()
   const { error: signInError } = await supabase.auth.signInWithPassword({ email: invite.email, password: p.data.password })
-  redirect(signInError ? '/login' : '/mfa') // primer ingreso: enrolar TOTP
+  redirect(signInError ? '/login' : HOME)
 }

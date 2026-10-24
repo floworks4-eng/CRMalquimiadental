@@ -7,8 +7,9 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' })
 
 export const metadata: Metadata = {
-  title: 'Alquimia Dental · CRM/ERP clínico (demo)',
-  description: 'Demo navegable del sistema clínico propuesto por Lumen Labs para Alquimia Dental, La Paz.',
+  title: 'Alquimia Dental',
+  description: 'Sistema clínico interno de Alquimia Dental.',
+  robots: { index: false, follow: false },
 }
 export const viewport: Viewport = { themeColor: '#1e1f21' }
 

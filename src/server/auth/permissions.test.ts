@@ -17,7 +17,7 @@ describe('matriz de capacidades (brief §6.2)', () => {
     }
   })
   it('recepcion si cobra y gestiona caja y agenda', () => {
-    for (const c of ['billing.charge', 'cash.open', 'cash.close', 'agenda.manage', 'checkin.issue', 'patients.create'] as const) expect(can('reception', c), c).toBe(true)
+    for (const c of ['billing.charge', 'cash.open', 'cash.close', 'agenda.manage', 'reception.board', 'patients.create'] as const) expect(can('reception', c), c).toBe(true)
   })
   it('el odontologo trabaja solo con lo suyo y no toca caja ni equipo', () => {
     for (const c of ['patients.read_clinical', 'encounters.write', 'agenda.manage', 'billing.charge'] as const) expect(scope('dentist', c), c).toBe('own')

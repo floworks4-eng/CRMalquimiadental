@@ -2,7 +2,13 @@ import { test, expect } from '@playwright/test'
 
 // Sin Supabase real: cubre lo que se decide en el servidor sin sesion (redirecciones, validacion, enlaces invalidos).
 test.describe('acceso sin sesion', () => {
-  for (const path of ['/cuenta', '/mfa', '/auditoria', '/agenda', '/pacientes', '/pacientes/00000000-0000-4000-8000-000000000101', '/recepcion']) {
+  const PRIVATE = [
+    '/inicio', '/agenda', '/consulta', '/consulta/00000000-0000-4000-8000-000000000201', '/recepcion', '/pacientes',
+    '/pacientes/00000000-0000-4000-8000-000000000101', '/caja', '/inventario', '/configuracion', '/cuenta',
+    // Lo que antes era del paciente ya no existe: sin sesion tampoco se llega.
+    '/reservar', '/c/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '/vista-previa',
+  ]
+  for (const path of PRIVATE) {
     test(`${path} manda a /login`, async ({ page }) => {
       await page.goto(path)
       await expect(page).toHaveURL(/\/login$/)
@@ -36,8 +42,8 @@ test.describe('acceso sin sesion', () => {
     await expect(page.getByText('Ese enlace ya no es válido')).toBeVisible()
   })
 
-  test('la demo sigue funcionando en paralelo', async ({ page }) => {
-    await page.goto('/')
-    await expect(page.getByRole('heading', { name: /con qué rol entras/i })).toBeVisible()
+  test('el primer arranque no se abre si no se puede comprobar que la base esta vacia', async ({ page }) => {
+    await page.goto('/configuracion-inicial')
+    await expect(page).toHaveURL(/\/login$/)
   })
 })

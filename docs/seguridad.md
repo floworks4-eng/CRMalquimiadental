@@ -1,70 +1,72 @@
-# Seguridad (Fase 1)
+# Seguridad
 
-Reglas no negociables del brief ([`fase1-brief.md`](fase1-brief.md), sección 0.1 y 6). Este archivo se completa en el Sprint 1.
+Reglas del brief ([`fase1-brief.md`](fase1-brief.md), secciones 0.1 y 6), ajustadas a las decisiones de la clínica del 24/10/2026.
 
-1. Ningún dato clínico en el navegador: sin `localStorage`, `sessionStorage` ni IndexedDB, ni datos personales en URLs.
-2. La autorización vive en el servidor (RLS + Server Actions). `can()` en React es solo cosmético.
-3. `SUPABASE_SERVICE_ROLE_KEY` nunca llega al navegador: solo en módulos `server-only`.
-4. Toda escritura clínica, financiera o de stock escribe `audit_log` en la misma transacción.
-5. Cada persona tiene su usuario con MFA; no hay cuentas compartidas ni login por rol.
-6. Secretos solo en Vercel/Supabase. `.env.example` lista nombres sin valores.
+1. **Solo personal.** No hay ninguna página para pacientes. Todo el sitio exige sesión; sin sesión, todo lleva a `/login`.
+2. Ningún dato clínico en el navegador: sin `localStorage`, `sessionStorage` ni IndexedDB, ni datos personales en URLs.
+3. La autorización vive en el servidor (RLS + Server Actions + RPC). `can()` en React es solo cosmético.
+4. `SUPABASE_SERVICE_ROLE_KEY` nunca llega al navegador: solo en módulos `server-only`.
+5. Toda escritura clínica, de dinero o de stock queda en `audit_log` en la misma transacción. El registro no se edita ni se borra.
+6. Cada persona tiene su usuario (por invitación); no hay cuentas compartidas ni registro público.
+7. Secretos solo en el servidor (Vercel / Supabase). `.env.example` lista nombres sin valores.
 
-## Pendiente de decisión legal
+## Decisión: sin verificación en dos pasos
 
-Los textos legales (consentimiento, aviso de privacidad, retención) y las referencias normativas del brief no están verificadas
-por un abogado boliviano. No usar en producción hasta esa revisión.
+La clínica pidió un acceso simple (correo y contraseña). Se desactivó el segundo factor (`has_mfa()` en la migración 0013).
+**Riesgo aceptado:** quien obtenga la contraseña de un odontólogo o del administrador ve historias clínicas. Mitigaciones:
+contraseñas de 12+ caracteres, límite de intentos de Supabase Auth, cada persona con su usuario, desactivar al que se va
+(Configuración → Equipo), auditoría de todo. Reactivarlo es un cambio pequeño (ver `arquitectura.md`); se recomienda al menos
+para el administrador cuando la clínica esté operando.
 
-## Estado del Gate G1 (Sprint 1)
+## Quién ve qué
 
-| Criterio | Estado |
+| | Administrador | Odontólogo | Recepción |
+|---|---|---|---|
+| Agenda | toda | la suya | toda |
+| Pacientes (contacto) | todos | los suyos* | todos |
+| Anamnesis, odontograma, notas, plan | todo | de sus pacientes | **nunca** (ni llega al navegador) |
+| Iniciar / finalizar atención | sí | las suyas | no |
+| Facturas y saldos | todo | de sus pacientes | todo |
+| Caja (movimientos, apertura, cierre) | sí | no | sí |
+| Descuentos, anular cobros | sí | no | no |
+| Inventario | lee y escribe | lee | lee |
+| Configuración y equipo | sí | no | no |
+| Auditoría | sí | no | no |
+
+\* Sus pacientes: asignados a él o con alguna cita o atención suya. Por eso un odontólogo solo agenda a sus propios pacientes.
+
+## Verificado
+
+| Qué | Cómo |
 |---|---|
-| `anon` sin privilegios sobre tablas, vistas y funciones | ✅ probado (PGlite) |
-| Recepcion sin acceso a anamnesis, encuentros, hallazgos, plan y archivos | ✅ probado |
-| Odontologo A sin acceso a pacientes del odontologo B | ✅ probado |
-| Sin MFA (aal1) no hay acceso a datos de salud ni auditoria | ✅ probado con claims `aal1` |
-| Aislamiento entre clinicas | ✅ probado |
-| `audit_log` registra escrituras y es append-only (incluso para superusuario) | ✅ probado |
-| Doble reserva imposible (20 intentos concurrentes → 1) | ✅ probado |
-| Verificacion contra Supabase real (`db reset`, `db lint`, GoTrue, PostgREST) | ⏳ pendiente: requiere Docker |
-| Login + TOTP de punta a punta | ⏳ pendiente: codigo escrito y tipado, no ejecutado contra GoTrue |
-| URL directa a ruta privada sin sesion → `/login` | ✅ probado (Playwright) |
-
-Las pruebas se validaron tambien por mutacion: al debilitar a proposito las politicas (recepcion como clinica, MFA siempre verdadero) fallan 15 pruebas.
+| `anon` sin ningún permiso sobre tablas, vistas ni funciones | PGlite + Supabase real (`permission denied`) |
+| Registro público apagado | Supabase real (`signup_disabled`) |
+| Recepción sin acceso a datos clínicos; odontólogo A sin acceso a pacientes de B; aislamiento entre clínicas | PGlite (RLS) + Supabase real |
+| Sin doble reserva (20 intentos simultáneos → 1) | PGlite |
+| Cierre de atención: todo o nada, sin stock no se cierra, reintento sin doble cobro, doble cierre bloqueado | PGlite + Supabase real |
+| Precio del plan fijado por la base, no por el navegador | PGlite + Supabase real |
+| Pagos y facturas sin escritura directa; anulación solo admin con motivo | PGlite |
+| Lote de stock nunca negativo; ajustes con motivo; solo admin repone | PGlite + Supabase real |
+| Caja: una abierta, esperado correcto, diferencia con motivo | PGlite + Supabase real |
+| Configuración inicial solo una vez y solo desde el servidor | PGlite + Supabase real |
+| Rutas privadas sin sesión → `/login`; cabeceras de seguridad (CSP, frame, nosniff…) | Playwright (escritorio y celular) |
+| `audit_log` append-only, incluso para superusuario | PGlite |
 
 ## Limitaciones conocidas
 
-- Las filas hijas referencian a sus padres solo por `id`, sin llave compuesta `(clinic_id, id)`. Con una sola clinica es irrelevante; antes de
-  habilitar varias clinicas hay que agregar llaves compuestas.
-- `member_invites` no tiene trigger de auditoria; el servidor registra `member.invite` con `log_event` y `accept_invite` audita la aceptacion.
-- Sin limite de intentos propio en el login (lo aplica Supabase Auth); la tabla de rate limit es del Sprint 5 (F1-070).
-- El rol (`clinic_admin`/`dentist`/`reception`) vive solo en `clinic_members`, nunca en `user_metadata`.
+- Las filas hijas referencian a sus padres solo por `id`, sin llave compuesta `(clinic_id, id)`. Con una sola clínica es
+  irrelevante; antes de habilitar varias hay que agregarlas.
+- CSP con `'unsafe-inline'` en scripts (Next necesita scripts inline sin nonces). El resto de la política es estricta.
+- Recuperar contraseña usa el correo por defecto de Supabase (pocos envíos por hora). Para producción: SMTP propio
+  (ver `operacion.md`).
+- Los respaldos diarios automáticos requieren el plan Pro de Supabase; en el plan gratuito, usar el respaldo manual de `operacion.md`.
 
-## Usuarios de desarrollo
+## Pendiente de decisión legal
 
-El seed crea `doc@`, `valeria@`, `sergio@` y `paola@alquimia.test` con la contrasena local indicada en `supabase/seed.dev.sql`
-(solo local, nunca en produccion). Cada ingreso exige enrolar TOTP la primera vez.
+Política de privacidad interna, consentimiento informado en papel o escaneado, y plazos de conservación de historias clínicas:
+deben revisarlos la clínica y un abogado boliviano.
 
-## Gate G2 (Sprint 2)
+## Datos de prueba
 
-| Criterio | Estado |
-|---|---|
-| 20 reservas simultaneas del mismo horario → 1 exito | ✅ probado (PGlite) |
-| Odontologo solo ve su agenda y solo agenda a sus pacientes | ✅ probado |
-| Disponibilidad correcta (horarios, feriados, ausencias, solapes, gabinetes) | ✅ 14 casos + coherencia "lo ofrecido se puede reservar" |
-| Transiciones de estado: TS y SQL coinciden | ✅ 147 combinaciones |
-| Agenda operable con teclado | ⏳ implementado (flechas/Enter, pestañas ARIA); sin verificar con lector de pantalla |
-| Pantallas contra Supabase real | ⏳ pendiente: renderizadas solo con datos de prueba, nunca contra la base |
-
-## Gate G3 (Sprint 3)
-
-| Criterio | Estado |
-|---|---|
-| Token de check-in: 256 bits, solo hash en la base, un uso, vence, se revoca al emitir otro | ✅ probado (PGlite) |
-| 5 envios simultaneos con el mismo enlace → 1 | ✅ probado |
-| El contexto publico no expone apellido, telefono ni datos de salud | ✅ probado |
-| Recepcion no ve alergias (ni en consentimientos ni en avisos); el odontologo si | ✅ probado |
-| Sin texto legal aprobado no hay check-in ni reserva | ✅ probado |
-| Reserva publica sin enumeracion (solo horas), dedupe por celular, limite de citas | ✅ probado |
-| `anon` y `authenticated` no ejecutan ninguna RPC publica | ✅ probado |
-| Firma: solo PNG real, ≤150 KB, dimensiones razonables; ruta atada al paciente del enlace | ✅ probado |
-| Check-in desde un celular real contra Supabase real | ⏳ pendiente: pantallas revisadas solo con datos de prueba |
+`supabase/seed.dev.sql` crea usuarios `@alquimia.test` con una contraseña escrita en el archivo. **Solo** para las pruebas
+automáticas (PGlite) y desarrollo local; nunca se carga en el proyecto real.

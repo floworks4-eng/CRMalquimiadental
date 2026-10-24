@@ -11,15 +11,8 @@ export async function requireSession() {
   return s
 }
 
-/** Sin segundo factor verificado no hay acceso a nada operativo. */
-export async function requireMfa() {
-  const s = await requireSession()
-  if (s.aal !== 'aal2') redirect('/mfa')
-  return s
-}
-
 export async function requireMember() {
-  const s = await requireMfa()
+  const s = await requireSession()
   if (!s.member) redirect('/forbidden')
   return s as Session & { member: Member }
 }
