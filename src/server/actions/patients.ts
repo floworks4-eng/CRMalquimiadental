@@ -95,6 +95,26 @@ const importRowSchema = patientSchema.omit({ phone: true, firstSource: true, cam
 })
 const splitList = (v?: string) => (v ? v.split(/[,;\n]/).map((x) => x.trim()).filter(Boolean).slice(0, 20) : [])
 
+/** Alta mínima para digitalizar fichas antiguas que no tienen celular. */
+export async function createPaperPatient(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const parsed = importRowSchema.safeParse(input)
+  if (!parsed.success) return fail('VALIDATION', parsed.error.issues[0]?.message ?? 'Revisa los datos.')
+  const session = await requireCapability('settings.manage')
+  const supabase = await createClient()
+  const normalized = normalizeName(parsed.data.fullName)
+  const { data: existing, error: lookupError } = await supabase.from('patients').select('id')
+    .eq('clinic_id', session.member.clinicId).eq('normalized_name', normalized).limit(1)
+  if (lookupError) return fail('INTERNAL', 'No pudimos comprobar si el paciente ya existe.')
+  if (existing?.length) return fail('CONFLICT', 'Ya existe un paciente con ese nombre. Búscalo en «Paciente existente» para adjuntar sus fichas.')
+  const { data, error } = await supabase.from('patients').insert({
+    clinic_id: session.member.clinicId, full_name: parsed.data.fullName, normalized_name: normalized,
+    phone_e164: parsed.data.phone ?? null, first_source: 'historical', created_by: session.userId,
+  }).select('id').single()
+  if (error || !data) return fail('INTERNAL', error?.code === '23505' ? 'Ya existe un paciente con ese celular. Selecciónalo en «Paciente existente».' : 'No pudimos crear el paciente.')
+  revalidatePath('/pacientes')
+  return ok({ id: data.id as string })
+}
+
 /**
  * Importa la lista historica de pacientes con su historia clinica (planilla o fichas en papel transcritas).
  * Cada fila se valida como el alta manual. Se omiten duplicados: mismo celular, o mismo nombre y fecha de nacimiento

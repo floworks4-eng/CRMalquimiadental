@@ -40,4 +40,4 @@ export type Capability = keyof typeof CAPABILITIES
 export const scope = (role: Role, cap: Capability): Scope => CAPABILITIES[cap][role]
 export const can = (role: Role, cap: Capability) => scope(role, cap) !== 'none'
 
-export const ROLE_LABEL: Record<Role, string> = { clinic_admin: 'Administrador', dentist: 'Odontólogo', reception: 'Recepción' }
+export const ROLE_LABEL: Record<Role, string> = { clinic_admin: 'Administrador', dentist: 'Odontólogo', reception: 'Recepción y caja' }

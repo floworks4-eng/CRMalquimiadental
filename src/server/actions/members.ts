@@ -19,7 +19,10 @@ export async function createMember(input: unknown): Promise<ActionResult> {
   const { data: created, error } = await admin.auth.admin.createUser({
     email: d.email, password: d.password, email_confirm: true, user_metadata: { full_name: d.fullName },
   })
-  if (error || !created.user) return fail('CONFLICT', 'Ya existe una cuenta con ese correo.', { email: 'Ya existe una cuenta con ese correo.' })
+  if (error || !created.user) {
+    if (error?.code === 'email_exists' || error?.code === 'user_already_exists') return fail('CONFLICT', 'Ya existe una cuenta con ese correo.', { email: 'Ya existe una cuenta con ese correo.' })
+    return fail('INTERNAL', 'No pudimos crear el usuario. Revisa el correo y la contraseña e intenta de nuevo.')
+  }
 
   const { error: memberError } = await admin.from('clinic_members').insert({
     clinic_id: s.member.clinicId, user_id: created.user.id, role: d.role, title: d.title ?? null,

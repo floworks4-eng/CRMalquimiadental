@@ -6,8 +6,8 @@
   --color-gold: #c9a961;
   --color-gold-soft: #e3cc94;
   --color-azure: #2f7bff;
-  --color-bone: #f2eee6;
-  --color-muted: #b5aea3;
+  --color-bone: #ffffff;
+  --color-muted: #f4f4f5;
   --color-ok: #6fd69a;
   --color-warn: #f2b84b;
   --color-bad: #ff8a80;
@@ -156,7 +156,7 @@ body {
   font-size: 0.9rem;
 }
 .field::placeholder {
-  color: rgb(181 174 163 / 0.7);
+  color: rgb(244 244 245 / 0.75);
 }
 .field[aria-invalid='true'] {
   border-color: var(--color-bad);

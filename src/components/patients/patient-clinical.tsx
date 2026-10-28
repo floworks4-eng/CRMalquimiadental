@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
-import { FileText, NotebookPen, Stethoscope, ClipboardList, Plus } from 'lucide-react'
+import { FileText, NotebookPen, Stethoscope, ClipboardList, Plus, Camera, ExternalLink } from 'lucide-react'
 import { Field } from '../ui'
 import { Odontogram, type ToothMark } from '../odontogram'
 import { addClinicalNote } from '@/server/actions/patients'
@@ -89,6 +89,8 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
         )}
       </section>
 
+      <PatientFiles patientId={patientId} files={data.files} />
+
       <section className="glass p-5">
         <h2 className="title-gold mb-3 text-lg">Odontograma</h2>
         <Odontogram marks={marks} selected={selected} onSelect={setSelected} initialDentition={child ? 'temporal' : 'permanente'} />
@@ -119,6 +121,51 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
         )}
       </section>
     </>
+  )
+}
+
+function PatientFiles({ patientId, files }: { patientId: string; files: PatientClinical['files'] }) {
+  const router = useRouter()
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const upload = async (file: File | undefined) => {
+    if (!file) return
+    setPending(true); setError(''); setMessage('')
+    try {
+      const form = new FormData(); form.set('file', file)
+      const response = await fetch(`/api/patients/${patientId}/files`, { method: 'POST', body: form })
+      const result = await response.json() as { error?: string }
+      if (!response.ok) setError(result.error ?? 'No se pudo guardar el archivo.')
+      else { setMessage('Ficha guardada en el expediente.'); router.refresh() }
+    } catch { setError('No se pudo conectar con el servidor.') }
+    finally { setPending(false) }
+  }
+  return (
+    <section className="glass p-5">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="title-gold text-lg">Fichas y documentos</h2>
+          <p className="mt-1 text-sm text-muted">Toma una foto del registro en papel o sube un PDF. Queda guardado en la ficha del paciente.</p>
+        </div>
+        <label className="btn btn-secondary cursor-pointer">
+          <Camera size={16} aria-hidden />{pending ? 'Guardando…' : 'Tomar foto / subir'}
+          <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" disabled={pending} onChange={(e) => upload(e.target.files?.[0])} />
+        </label>
+      </div>
+      {error && <p role="alert" className="mt-3 text-sm text-bad">{error}</p>}
+      {message && <p role="status" className="mt-3 text-sm text-ok">{message}</p>}
+      {files.length > 0 && (
+        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+          {files.map((file) => (
+            <li key={file.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/15 px-3 py-2 text-sm">
+              <span className="min-w-0"><span className="block text-bone">{file.kind === 'photo' ? 'Foto de ficha' : 'Documento PDF'}</span><span className="text-xs text-muted">{new Date(file.createdAt).toLocaleDateString('es-BO')} · {(file.sizeBytes / 1024 / 1024).toFixed(1)} MB</span></span>
+              {file.url && <a className="btn btn-ghost shrink-0 px-2 py-1 text-xs text-gold-soft" href={file.url} target="_blank" rel="noreferrer">Abrir <ExternalLink size={13} aria-hidden /></a>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 

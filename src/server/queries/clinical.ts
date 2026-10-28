@@ -164,9 +164,10 @@ export type EncounterHistoryItem = {
 }
 export type ClinicalNote = { id: string; notedOn: string; body: string; source: 'staff' | 'import'; author: string; createdAt: string }
 export type AnamnesisVersion = { id: string; version: number; submittedAt: string; source: AnamnesisView['source']; summary: string; author: string }
+export type PatientFile = { id: string; kind: 'photo' | 'document'; mime: string; sizeBytes: number; createdAt: string; url: string | null }
 export type PatientClinical = {
   anamnesis: AnamnesisView | null; findings: Finding[]; pending: PlanItem[]; history: EncounterHistoryItem[]
-  notes: ClinicalNote[]; anamnesisVersions: AnamnesisVersion[]
+  notes: ClinicalNote[]; anamnesisVersions: AnamnesisVersion[]; files: PatientFile[]
 }
 
 /** Historia clinica completa de la ficha: anamnesis y sus versiones, odontograma, plan, atenciones, notas e historial importado. */
@@ -174,7 +175,7 @@ export async function getPatientClinical(patientId: string): Promise<PatientClin
   if (!UUID.test(patientId)) return null
   await requireCapability('patients.read_clinical')
   const supabase = await createClient()
-  const [anamnesis, findings, plan, { data: enc }, { data: notes }, { data: versions }] = await Promise.all([
+  const [anamnesis, findings, plan, { data: enc }, { data: notes }, { data: versions }, { data: files }] = await Promise.all([
     getCurrentAnamnesis(patientId),
     findingsOf(supabase, patientId),
     planOf(supabase, patientId),
@@ -183,6 +184,7 @@ export async function getPatientClinical(patientId: string): Promise<PatientClin
       .eq('patient_id', patientId).order('started_at', { ascending: false }).limit(200),
     supabase.from('clinical_notes').select('id, noted_on, body, source, created_at, author:profiles(full_name)').eq('patient_id', patientId).order('noted_on', { ascending: false }).order('created_at', { ascending: false }).limit(500),
     supabase.from('anamnesis_versions').select('id, version, submitted_at, source, allergies, allergy_other, conditions, medications, author:profiles!anamnesis_versions_submitted_by_fkey(full_name)').eq('patient_id', patientId).order('version', { ascending: false }),
+    supabase.from('patient_files').select('id, kind, mime, size_bytes, storage_path, created_at').eq('patient_id', patientId).order('created_at', { ascending: false }),
   ])
   type Inv = { number: string; total_cents: number; paid_cents: number }
   const history = ((enc ?? []) as unknown as {
@@ -201,6 +203,11 @@ export async function getPatientClinical(patientId: string): Promise<PatientClin
     }
   })
   const clean = (l: string[] | null, none: string) => (l ?? []).filter((x) => x !== none)
+  const fileRows = (files ?? []) as { id: string; kind: 'photo' | 'document'; mime: string; size_bytes: number; storage_path: string; created_at: string }[]
+  const filesWithUrls = await Promise.all(fileRows.map(async (file) => {
+    const { data } = await supabase.storage.from('clinical').createSignedUrl(file.storage_path, 3600)
+    return { id: file.id, kind: file.kind, mime: file.mime, sizeBytes: Number(file.size_bytes), createdAt: file.created_at, url: data?.signedUrl ?? null }
+  }))
   return {
     anamnesis, findings, pending: plan.filter((i) => i.status !== 'done'), history,
     notes: ((notes ?? []) as unknown as { id: string; noted_on: string; body: string; source: 'staff' | 'import'; created_at: string; author: { full_name: string } | null }[])
@@ -216,6 +223,7 @@ export async function getPatientClinical(patientId: string): Promise<PatientClin
         summary: [`Alergias: ${al.join(', ') || 'ninguna'}`, `Antecedentes: ${co.join(', ') || 'ninguno'}`, v.medications && `Medicamentos: ${v.medications}`].filter(Boolean).join(' · '),
       }
     }),
+    files: filesWithUrls,
   }
 }
 

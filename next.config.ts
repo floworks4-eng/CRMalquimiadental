@@ -20,6 +20,7 @@ const csp = [
 ].join('; ')
 
 const nextConfig: NextConfig = {
+  experimental: { proxyClientMaxBodySize: '21mb' },
   devIndicators: false,
   poweredByHeader: false,
   async headers() {

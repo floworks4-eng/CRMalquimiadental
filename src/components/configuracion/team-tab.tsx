@@ -15,6 +15,7 @@ export function TeamTab({ data }: { data: SettingsData }) {
   const [editing, setEditing] = useState<Member | null>(null)
   const [schedule, setSchedule] = useState<Member | null>(null)
   const [password, setPassword] = useState<Member | null>(null)
+  const access = useSave()
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.4fr_1fr]">
       <section className="glass p-5">
@@ -33,9 +34,11 @@ export function TeamTab({ data }: { data: SettingsData }) {
               {m.role !== 'reception' && <button className="btn btn-ghost px-2 py-1 text-xs" onClick={() => setSchedule(m)}>Turnos</button>}
               <button className="btn btn-ghost px-2 py-1 text-xs" onClick={() => setPassword(m)}><KeyRound size={13} aria-hidden />Contraseña</button>
               <button className="btn btn-ghost px-2 py-1 text-xs" onClick={() => setEditing(m)}>Editar</button>
+              <button type="button" className="btn btn-secondary px-2 py-1 text-xs" disabled={access.pending} onClick={() => access.run(() => updateMember({ memberId: m.id, role: m.role, title: m.title ?? '', active: !m.active }))}>{m.active ? 'Quitar acceso' : 'Reactivar'}</button>
             </li>
           ))}
         </ul>
+        <div className="mt-3">{access.status}</div>
         <p className="mt-3 text-xs text-muted">Nadie se borra: se desactiva y deja de entrar, pero su historial queda. Siempre queda al menos un administrador.</p>
       </section>
       <CreateMember />
@@ -138,13 +141,13 @@ function CreateMember() {
           </Field>
           {input('title', 'Cargo (opcional)', { placeholder: 'Ej. Endodoncista' })}
         </div>
-        {input('password', 'Contraseña inicial', { type: 'text' }, 'Mínimo 12 caracteres.')}
+        {input('password', 'Contraseña inicial', { type: 'password', autoComplete: 'new-password' }, 'Mínimo 12 caracteres. La persona puede ingresar directamente, sin esperar un correo.')}
         <button className="btn btn-primary w-full" disabled={pending}><UserPlus size={16} aria-hidden />{pending ? 'Creando…' : 'Crear cuenta'}</button>
       </form>
       <div className="mt-2">{!created && status}</div>
       {created && <p role="status" className="mt-3 rounded-xl border border-ok/40 bg-ok/10 p-3 text-sm text-ok">Cuenta creada para {created.name}. Ya puede entrar con {created.email} y la contraseña que le diste.</p>}
       <p className="mt-4 border-t border-white/8 pt-3 text-xs text-muted">
-        Administrador: todo. Odontólogo: su agenda, sus pacientes y su historia clínica. Recepción: agenda, pacientes (sin datos clínicos) y caja.
+        El Doc puede añadir odontólogas, recepción y caja desde aquí. Administrador: todo. Odontólogo: su agenda, sus pacientes y su historia clínica. Recepción: agenda, pacientes (sin datos clínicos) y caja.
       </p>
     </section>
   )

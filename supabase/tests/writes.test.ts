@@ -164,6 +164,32 @@ describe('Equipo', () => {
   })
 })
 
+describe('Digitalización de fichas y catálogo editable', () => {
+  it('registra una ficha de papel sin celular y conserva su referencia al archivo privado', async () => {
+    const created = await as(db, admin, (tx) => tx.query<{ id: string }>(
+      `insert into public.patients (clinic_id, full_name, normalized_name, first_source, created_by)
+       values ($1, 'Paciente Ficha Papel', 'paciente ficha papel', 'historical', $2) returning id`, [ID.clinic, ID.admin],
+    ))
+    const patientId = created.rows[0].id
+    const storagePath = `${ID.clinic}/${patientId}/hoja.jpg`
+    await as(db, admin, (tx) => tx.query(
+      `insert into public.patient_files (clinic_id, patient_id, kind, storage_path, mime, size_bytes, sha256, uploaded_by)
+       values ($1, $2, 'photo', $3, 'image/jpeg', 1024, $4, $5)`, [ID.clinic, patientId, storagePath, 'a'.repeat(64), ID.admin],
+    ))
+    expect(await rows(db, admin, 'select storage_path from public.patient_files where patient_id = $1', [patientId])).toEqual([{ storage_path: storagePath }])
+    expect(await rows(db, reception, 'select storage_path from public.patient_files where patient_id = $1', [patientId])).toEqual([])
+  })
+  it('el administrador crea un tratamiento, cambia el precio y recupera el importe actualizado', async () => {
+    const created = await as(db, admin, (tx) => tx.query<{ id: string }>(
+      `insert into public.treatments (clinic_id, code, name, price_cents, duration_min)
+       values ($1, 'prueba_catalogo', 'Tratamiento de prueba', 10000, 30) returning id`, [ID.clinic],
+    ))
+    const id = created.rows[0].id
+    await as(db, admin, (tx) => tx.query('update public.treatments set price_cents = 27000 where id = $1', [id]))
+    expect(await rows(db, admin, 'select price_cents from public.treatments where id = $1', [id])).toEqual([{ price_cents: 27000 }])
+  })
+})
+
 describe('Auditoria append-only y log_event', () => {
   it('ni siquiera un superusuario edita o borra la auditoria', async () => {
     await expect(db.exec(`update public.audit_log set action = 'x'`)).rejects.toThrow(/append-only/)

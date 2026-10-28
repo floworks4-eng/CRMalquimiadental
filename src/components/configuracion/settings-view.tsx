@@ -13,9 +13,9 @@ import { formatBs } from '@/lib/domain/money'
 import { formatDayLong } from '@/lib/domain/time'
 import type { SettingsData } from '@/server/queries/settings'
 import { useSave, WEEKDAYS } from './use-save'
+import { TABS, type Tab } from '@/lib/settings-tabs'
+import { ImportPaperRecords } from './import-paper-records'
 
-export const TABS = { clinica: 'Clínica', horarios: 'Horarios y gabinetes', tratamientos: 'Tratamientos y precios', equipo: 'Equipo', importar: 'Importar pacientes e historial' } as const
-export type Tab = keyof typeof TABS
 export function SettingsView({ data, tab }: { data: SettingsData; tab: Tab }) {
   return (
     <div className="fade-in">
@@ -32,7 +32,7 @@ export function SettingsView({ data, tab }: { data: SettingsData; tab: Tab }) {
       {tab === 'horarios' && <HoursTab data={data} />}
       {tab === 'tratamientos' && <TreatmentsTab data={data} />}
       {tab === 'equipo' && <TeamTab data={data} />}
-      {tab === 'importar' && <ImportPatients />}
+      {tab === 'importar' && <div className="space-y-5"><ImportPaperRecords /><ImportPatients /></div>}
     </div>
   )
 }
