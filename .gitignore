@@ -6,3 +6,8 @@ next-env.d.ts
 .vercel
 .claude/
 .DS_Store
+.env*.local
+test-results/
+supabase/.temp/
+.playwright-cli/
+output/playwright/

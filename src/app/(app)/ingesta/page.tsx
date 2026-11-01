@@ -55,7 +55,7 @@ export default function Ingesta() {
 
   return (
     <div className="fade-in">
-      <PageHeader eyebrow="Migración de historiales · OCR simulado" title="Ingesta de historiales" />
+      <PageHeader eyebrow="Migración de historiales · demostración" title="Importar pacientes" />
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <button className="glass flex items-center gap-3 p-4 text-left hover:ring-1 hover:ring-gold/50" onClick={() => start('foto')}>
           <FileImage className="text-gold" aria-hidden /><span><span className="block text-bone">Foto de ficha en papel</span><span className="text-sm text-muted">ficha_rosmery.jpg</span></span>
@@ -98,7 +98,7 @@ export default function Ingesta() {
 
           <Card title={phase === 'reading' ? 'Leyendo…' : phase === 'saved' ? 'Guardado' : 'Borrador para revisar'}>
             {phase === 'reading' && (
-              <p className="flex items-center gap-2 text-sm text-muted" role="status"><ScanText className="animate-pulse text-azure" aria-hidden />Lectura inteligente en curso: detectando campos…</p>
+              <p className="flex items-center gap-2 text-sm text-muted" role="status"><ScanText className="animate-pulse text-azure" aria-hidden />Preparando ejemplo de importación…</p>
             )}
             {phase === 'saved' && (
               <div role="status" className="text-center">

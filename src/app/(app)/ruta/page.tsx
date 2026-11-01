@@ -3,7 +3,7 @@ import { Flag } from 'lucide-react'
 import { PageHeader, Card } from '@/components/ui'
 
 const PHASES = [
-  { n: 1, from: 1, to: 5, title: 'Cimientos y migración', items: ['WhatsApp Business API con el número histórico', 'Base de datos, roles y accesos', 'Migración de Excel y fichas en papel (OCR + revisión humana)'] },
+  { n: 1, from: 1, to: 5, title: 'Cimientos y migración', items: ['WhatsApp Business API con el número histórico', 'Base de datos, roles y accesos', 'Migración de Excel y fichas en papel con revisión humana'] },
   { n: 2, from: 6, to: 12, title: 'Construcción', items: ['Agenda por gabinete y check-in QR', 'Ficha, odontograma 3D y plan de tratamiento', 'Inventario por receta y caja', 'Asistente de WhatsApp y /agendar-cita'] },
   { n: 3, from: 13, to: 18, title: 'Lanzamiento de campañas', items: ['Videos orgánicos de TikTok', 'Meta Ads geolocalizados (San Miguel y alrededores)', 'Atribución por campaña y plantillas de recordatorio aprobadas'] },
   { n: 4, from: 19, to: 22, title: 'Piloto', items: ['Operación real con el equipo', 'Ajustes diarios', 'Hito: primer paciente real de campaña atendido y cobrado'] },

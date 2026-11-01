@@ -1,9 +1,9 @@
 'use client'
 import Link from 'next/link'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Play, Pause, StepForward, RotateCcw, Hand, Bot, ArrowLeft, BadgeCheck, Send, Megaphone, CalendarCheck, ShieldCheck, Clock } from 'lucide-react'
+import { Play, Pause, StepForward, RotateCcw, Hand, Bot, ArrowLeft, Send, Megaphone, CalendarCheck, Search, MessageCircle, ChevronRight } from 'lucide-react'
 import { useDB, createAppointment, todayISO, addDays, fecha, byId, CLINIC, DEMO_APPT, DEMO_PATIENT } from '@/lib/data'
-import { PageHeader } from '@/components/ui'
+import { PageHeader, Avatar } from '@/components/ui'
 
 type Msg = { from: 'patient' | 'bot' | 'staff' | 'system'; text: string; quick?: string[]; at: string; tag?: string; book?: boolean }
 
@@ -11,8 +11,8 @@ const today = () => fecha(todayISO())
 const CHATS: { id: string; name: string; sub: string; msgs: () => Msg[] }[] = [
   {
     id: 'nuevo',
-    name: 'Mariela (nueva)',
-    sub: 'Desde anuncio · agenda sola',
+    name: 'Mariela Quispe',
+    sub: 'Consulta por una limpieza',
     msgs: () => [
       { from: 'system', at: '10:41', text: 'Llegó desde el anuncio «Limpieza San Miguel» (TikTok + Meta Ads). Se guarda la campaña para medir el resultado.', tag: 'ad' },
       { from: 'patient', at: '10:41', text: 'Hola 👋 vi su video en TikTok. ¿Cuánto cuesta la limpieza?' },
@@ -31,7 +31,7 @@ const CHATS: { id: string; name: string; sub: string; msgs: () => Msg[] }[] = [
   {
     id: 'conocido',
     name: 'Juan Carlos Quispe',
-    sub: 'Paciente reconocido · fuera de horario',
+    sub: 'Quiere reprogramar su cita',
     msgs: () => [
       { from: 'system', at: '22:14', text: 'Número reconocido: Juan Carlos Quispe Mamani · ortodoncia en curso · Doc.', tag: 'id' },
       { from: 'patient', at: '22:14', text: 'Buenas noches, ¿me pueden cambiar mi control de ortodoncia?' },
@@ -44,7 +44,7 @@ const CHATS: { id: string; name: string; sub: string; msgs: () => Msg[] }[] = [
   {
     id: 'recordatorios',
     name: 'Gabriela Rojas',
-    sub: 'Recordatorios 48 h y 24 h',
+    sub: 'Cita confirmada para mañana',
     msgs: () => [
       { from: 'bot', at: 'Ayer 09:30', tag: 'Plantilla aprobada · recordatorio_48h', text: `Hola Gabriela 👋 Te esperamos el ${fecha(addDays(todayISO(), 1))} a las 09:30 para tu Limpieza dental en Alquimia Dental (San Miguel).\nResponde 1 para confirmar o 2 para reprogramar.` },
       { from: 'patient', at: 'Ayer 09:52', text: '1' },
@@ -70,12 +70,14 @@ function book() {
 export default function WhatsApp() {
   const db = useDB()
   const [chat, setChat] = useState(CHATS[0])
-  const [shown, setShown] = useState(1)
+  const [shown, setShown] = useState(3)
   const [typing, setTyping] = useState(false)
   const [playing, setPlaying] = useState(false)
   const [human, setHuman] = useState(false)
   const [extra, setExtra] = useState<Msg[]>([])
   const [draft, setDraft] = useState('')
+  const [chatQuery, setChatQuery] = useState('')
+  const [mobileOpen, setMobileOpen] = useState(false)
   const body = useRef<HTMLDivElement>(null)
   const msgs = chat.msgs()
   const done = shown >= msgs.length
@@ -103,8 +105,9 @@ export default function WhatsApp() {
   }, [shown, typing, extra.length])
 
   const open = (c: (typeof CHATS)[number]) => {
+    setMobileOpen(true)
     setChat(c)
-    setShown(1)
+    setShown(3)
     setPlaying(false)
     setTyping(false)
     setHuman(false)
@@ -118,92 +121,40 @@ export default function WhatsApp() {
   }
   const booked = byId(db.appointments, DEMO_APPT)
 
-  return (
-    <div className="fade-in">
-      <PageHeader eyebrow="Asistente de WhatsApp (simulado)" title="WhatsApp de la clínica" />
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px_1fr]">
-        <div className="space-y-3">
-          <p className="eyebrow">Conversaciones de ejemplo</p>
-          {CHATS.map((c) => (
-            <button key={c.id} onClick={() => open(c)} aria-pressed={chat.id === c.id}
-              className={`glass block w-full p-4 text-left transition-shadow duration-150 ${chat.id === c.id ? 'ring-1 ring-gold/50' : 'hover:ring-1 hover:ring-white/15'}`}>
-              <span className="block text-bone">{c.name}</span>
-              <span className="text-sm text-muted">{c.sub}</span>
-            </button>
-          ))}
-          <div className="glass flex flex-wrap gap-2 p-3" role="group" aria-label="Reproducción">
-            <button className="btn btn-primary flex-1" onClick={() => setPlaying(!playing)} disabled={done || human}>
-              {playing ? <><Pause size={16} aria-hidden />Pausar</> : <><Play size={16} aria-hidden />Reproducir</>}
-            </button>
-            <button className="btn btn-secondary" onClick={step} disabled={done || playing || human}><StepForward size={16} aria-hidden />Paso</button>
-            <button className="btn btn-ghost" onClick={() => open(chat)} aria-label="Reiniciar conversación"><RotateCcw size={16} /></button>
-          </div>
-          {booked && chat.id === 'nuevo' && done && (
-            <Link href="/agenda" className="glass fade-in flex items-center gap-3 p-4 text-sm ring-1 ring-azure/50 hover:ring-azure">
-              <CalendarCheck className="text-azure" aria-hidden />
-              <span><span className="block text-bone">Ver la cita en la agenda</span><span className="text-muted">{booked.start} · {byId(db.cabinets, booked.cabinetId)?.name} · chip WhatsApp</span></span>
-            </Link>
-          )}
+  return <div className="fade-in">
+    <PageHeader title="WhatsApp" eyebrow="Las conversaciones de tus pacientes, junto a su agenda." />
+    <section className="glass grid h-[calc(100dvh-285px)] min-h-[480px] overflow-hidden lg:h-[calc(100dvh-240px)] lg:max-h-[760px] lg:grid-cols-[285px_minmax(0,1fr)]" aria-label="Mensajes de la clínica">
+      <aside className={`${mobileOpen ? 'hidden' : 'flex'} min-h-0 flex-col border-r border-white/8 bg-[#303135] lg:flex`}>
+        <div className="border-b border-white/8 p-5"><div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">Conversaciones</h2><span className="filter-count text-gold">{CHATS.length}</span></div><label className="relative block"><Search size={15} className="absolute left-3 top-3.5 text-muted" aria-hidden /><span className="sr-only">Buscar conversación</span><input className="field border-transparent bg-white/4 pl-9 text-xs" placeholder="Buscar una conversación" value={chatQuery} onChange={e => setChatQuery(e.target.value)} /></label></div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          {CHATS.filter(c => c.name.toLowerCase().includes(chatQuery.toLowerCase())).map((c, index) => <button key={c.id} onClick={() => open(c)} aria-pressed={chat.id === c.id} className={`flex w-full items-start gap-3 rounded-xl p-3.5 text-left transition-colors ${chat.id === c.id ? 'bg-[#5b5140]' : 'hover:bg-white/4'}`}><Avatar name={c.name} size={42} /><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-medium">{c.name}</span><span className="text-[0.6rem] text-muted">{index === 0 ? '10:44' : index === 1 ? 'Ayer' : '09:41'}</span></span><span className="mt-1.5 block text-xs leading-relaxed text-muted">{c.sub}</span><span className="mt-2 inline-flex rounded-full bg-black/15 px-2 py-0.5 text-[0.6rem] text-gold">{c.id === 'recordatorios' ? 'Cita confirmada' : c.id === 'nuevo' ? 'Nuevo paciente' : 'Paciente de la clínica'}</span></span></button>)}
+          {!CHATS.some(c => c.name.toLowerCase().includes(chatQuery.toLowerCase())) && <p className="p-6 text-center text-xs text-muted">No hay conversaciones con ese nombre.</p>}
         </div>
-
-        {/* Teléfono */}
-        <div className="mx-auto w-full max-w-[380px]">
-          <div className="rounded-[2.6rem] border border-white/15 bg-black p-2.5 shadow-[0_30px_60px_rgb(0_0_0/0.5),0_0_50px_rgb(201_169_97/0.12)]">
-            <div className="flex h-[640px] flex-col overflow-hidden rounded-[2.1rem] bg-[#18191b]">
-              <div className="flex items-center gap-3 border-b border-white/8 bg-[#232427] px-4 pb-3 pt-7">
-                <ArrowLeft size={18} className="text-muted" aria-hidden />
-                <span aria-hidden className="grid h-9 w-9 place-items-center rounded-full border border-gold/50 bg-black font-display italic text-gold">A</span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1 text-sm font-medium text-bone">Alquimia Dental <BadgeCheck size={14} className="text-azure" aria-label="Cuenta de empresa verificada" /></span>
-                  <span className="block truncate text-[0.68rem] text-muted">{human ? 'Paola (Recepción) está escribiendo' : `Cuenta de empresa · ${CLINIC.whatsapp}`}</span>
-                </span>
-              </div>
-              {human && <p className="bg-gold/15 px-4 py-1.5 text-center text-xs text-gold-soft">Paola tomó el chat · el asistente está en pausa</p>}
-              <div ref={body} className="flex-1 space-y-2 overflow-y-auto px-3 py-4" aria-live="polite" aria-label="Conversación">
-                {[...msgs.slice(0, shown), ...extra].map((m, i) => <Bubble key={i} m={m} />)}
-                {typing && (
-                  <div className="ml-auto w-16 rounded-2xl rounded-br-sm bg-[#173054] px-3 py-2" aria-label="El asistente está escribiendo">
-                    {[0, 1, 2].map((d) => <span key={d} className="mx-0.5 inline-block h-1.5 w-1.5 rounded-full bg-bone" style={{ animation: `typing 1s ${d * 0.15}s infinite` }} />)}
-                  </div>
-                )}
-              </div>
-              <form onSubmit={send} className="flex items-center gap-2 border-t border-white/8 bg-[#232427] p-2.5">
-                <label className="sr-only" htmlFor="wa-input">Mensaje</label>
-                <input id="wa-input" className="field rounded-full py-2 text-sm" disabled={!human} value={draft} onChange={(e) => setDraft(e.target.value)}
-                  placeholder={human ? 'Escribe como Paola…' : 'Responde el asistente · toma el chat para escribir'} />
-                <button className="btn btn-primary h-9 w-9 shrink-0 rounded-full p-0" disabled={!human || !draft.trim()} aria-label="Enviar"><Send size={15} /></button>
-              </form>
-            </div>
-          </div>
-          <button className={`btn mt-4 w-full ${human ? 'btn-secondary' : 'btn-primary'}`} onClick={() => { setHuman(!human); setPlaying(false); setTyping(false) }}>
-            {human ? <><Bot size={16} aria-hidden />Devolver al asistente</> : <><Hand size={16} aria-hidden />Tomar el chat</>}
-          </button>
+        <p className="flex items-start gap-2 border-t border-white/8 p-4 text-[0.65rem] leading-relaxed text-muted"><MessageCircle size={14} className="mt-0.5 shrink-0 text-gold" aria-hidden />Conversaciones de demostración. No se envían mensajes reales.</p>
+      </aside>
+      <div className={`${mobileOpen ? 'flex' : 'hidden'} min-h-0 min-w-0 flex-col lg:flex`}>
+        <header className="flex items-center justify-between gap-3 border-b border-white/8 bg-[#3a3b40] px-4 py-4 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3"><button className="-ml-2 rounded-lg p-2 text-muted lg:hidden" aria-label="Volver a conversaciones" onClick={() => setMobileOpen(false)}><ArrowLeft size={19} /></button><span className="hidden sm:block"><Avatar name={chat.name} size={40} /></span><div className="min-w-0"><h2 className="truncate text-sm font-semibold">{chat.name}</h2><p className="mt-1 flex items-center gap-1.5 text-[0.65rem] text-muted"><span className={`h-1.5 w-1.5 rounded-full ${human ? 'bg-gold' : 'bg-gold'}`} aria-hidden />{human ? 'Paola · recepción' : 'Asistente de la clínica'}</p></div></div>
+          <button className={`btn min-h-9 shrink-0 px-3 py-2 text-xs ${human ? 'btn-secondary' : 'btn-primary'}`} onClick={() => { setHuman(!human); setPlaying(false); setTyping(false) }}>{human ? <><Bot size={15} aria-hidden /><span className="hidden sm:inline">Activar asistente</span><span className="sm:hidden">Asistente</span></> : <><Hand size={15} aria-hidden /><span className="hidden sm:inline">Responder yo</span><span className="sm:hidden">Responder</span></>}</button>
+        </header>
+        {human && <p className="border-b border-gold/10 bg-gold/7 px-4 py-2 text-center text-xs text-gold-soft">Estás respondiendo como recepción. El asistente está en pausa.</p>}
+        <div ref={body} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#27282c] p-4 sm:px-8 sm:py-5" style={{ backgroundImage: 'radial-gradient(#ffffff07 1px, transparent 1px)', backgroundSize: '20px 20px' }} aria-live="polite" aria-label="Conversación">
+          <p className="mx-auto mb-5 w-fit rounded-lg bg-white/5 px-3 py-1.5 text-[0.65rem] text-muted">Conversación de ejemplo</p>
+          {[...msgs.slice(0, shown), ...extra].map((m, i) => <Bubble key={i} m={m} />)}
+          {typing && <div className="ml-auto w-16 rounded-2xl rounded-br-sm bg-[#5b5140] px-3 py-2" aria-label="El asistente está escribiendo">{[0,1,2].map(d => <span key={d} className="mx-0.5 inline-block h-1.5 w-1.5 rounded-full bg-bone" style={{ animation: `typing 1s ${d*0.15}s infinite` }} />)}</div>}
+          {booked && chat.id === 'nuevo' && done && <Link href="/agenda" className="mx-auto mt-4 flex max-w-sm items-center gap-3 rounded-xl border border-gold/25 bg-[#5b4e36] p-4 text-xs"><CalendarCheck size={23} className="text-gold" aria-hidden /><span className="flex-1"><span className="block font-medium">Cita agendada a las {booked.start}</span><span className="mt-1 block text-muted">Ver en la agenda de la clínica</span></span><ChevronRight size={17} aria-hidden /></Link>}
         </div>
-
-        <ul className="space-y-3 text-sm">
-          {[
-            { icon: ShieldCheck, t: 'Mismo número de 20 años', d: 'Se conserva el número histórico de la clínica, ahora con la API oficial de WhatsApp Business.' },
-            { icon: Clock, t: 'Responde 24/7', d: 'Precios, ubicación y horarios al instante, también de noche y fines de semana.' },
-            { icon: CalendarCheck, t: 'Agenda y confirma', d: 'Propone horarios libres reales y la cita aparece en la agenda con origen WhatsApp.' },
-            { icon: Hand, t: 'El equipo manda', d: 'Recepción puede tomar cualquier conversación con un clic.' },
-            { icon: Megaphone, t: 'Atribución', d: 'Cada chat que llega de un anuncio guarda su campaña para saber qué anuncio trae pacientes que pagan.' },
-          ].map(({ icon: Icon, t, d }) => (
-            <li key={t} className="glass flex gap-3 p-4">
-              <Icon size={18} className="mt-0.5 shrink-0 text-gold" aria-hidden />
-              <span><span className="block text-bone">{t}</span><span className="text-muted">{d}</span></span>
-            </li>
-          ))}
-          <li className="px-1 text-xs text-muted">Los recordatorios usan plantillas aprobadas por Meta; aquí solo se muestran como ejemplo. Sin envíos reales.</li>
-        </ul>
+        <form onSubmit={send} className="flex items-center gap-3 border-t border-white/8 bg-[#3a3b40] p-3 sm:px-5"><label className="sr-only" htmlFor="wa-input">Mensaje</label><input id="wa-input" className="field rounded-xl border-transparent bg-[#27282c] text-sm" disabled={!human} value={draft} onChange={e => setDraft(e.target.value)} placeholder={human ? 'Escribe un mensaje…' : 'Elige «Responder yo» para escribir'} /><button className="btn btn-primary h-11 w-11 shrink-0 rounded-xl p-0" disabled={!human || !draft.trim()} aria-label="Enviar mensaje de demostración"><Send size={18} /></button></form>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 bg-[#35363a] px-4 py-2.5"><p className="text-[0.65rem] text-muted">Explora cómo responde el asistente</p><div className="flex items-center gap-1" role="group" aria-label="Reproducción de la demostración"><button className="btn btn-ghost min-h-8 px-2.5 py-1 text-xs text-gold" onClick={() => { setPlaying(!playing); setMobileOpen(true) }} disabled={done || human}>{playing ? <><Pause size={14} aria-hidden />Pausar</> : <><Play size={14} aria-hidden />Reproducir</>}</button><button className="btn btn-ghost min-h-8 px-2.5 py-1 text-xs" onClick={step} disabled={done || playing || human}><StepForward size={14} aria-hidden />Siguiente</button><button className="btn btn-ghost min-h-8 p-2" onClick={() => open(chat)} aria-label="Reiniciar conversación"><RotateCcw size={14} /></button></div></div>
       </div>
-    </div>
-  )
+    </section>
+  </div>
 }
 
 function Bubble({ m }: { m: Msg }) {
   if (m.from === 'system')
     return (
-      <p className={`fade-in mx-auto max-w-[90%] rounded-xl px-3 py-1.5 text-center text-[0.72rem] ${m.tag === 'booked' ? 'border border-azure/40 bg-azure/15 text-[#bcd3ff]' : 'border border-gold/30 bg-gold/10 text-gold-soft'}`}>
+      <p className={`fade-in mx-auto max-w-[90%] rounded-xl px-3 py-1.5 text-center text-[0.72rem] ${m.tag === 'booked' ? 'border border-azure/40 bg-azure/15 text-gold' : 'border border-gold/30 bg-gold/10 text-gold-soft'}`}>
         {m.tag === 'ad' && <Megaphone size={12} className="mr-1 inline" aria-hidden />}
         {m.text}
       </p>
@@ -213,12 +164,12 @@ function Bubble({ m }: { m: Msg }) {
     <div className={`fade-in flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
       {mine && (
         <span className="mb-0.5 px-1 text-[0.62rem] text-muted">
-          {m.from === 'staff' ? 'Paola · Recepción' : m.tag ? `🤖 ${m.tag}` : '🤖 Asistente'}
+          {m.from === 'staff' ? 'Paola · Recepción' : m.tag ? `${m.tag}` : 'Asistente de la clínica'}
         </span>
       )}
       <div
-        className={`max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-[0.84rem] leading-snug ${
-          m.from === 'patient' ? 'rounded-bl-sm bg-white/10 text-bone' : m.from === 'staff' ? 'rounded-br-sm border border-gold/40 bg-gold/15 text-bone' : 'rounded-br-sm bg-[#173054] text-bone'
+        className={`max-w-[90%] whitespace-pre-line rounded-2xl px-4 py-3 text-[0.84rem] leading-relaxed sm:max-w-[75%] ${
+          m.from === 'patient' ? 'rounded-bl-sm bg-white/10 text-bone' : m.from === 'staff' ? 'rounded-br-sm border border-gold/40 bg-gold/15 text-bone' : 'rounded-br-sm bg-[#5b5140] text-bone'
         }`}
       >
         {m.text}
@@ -226,7 +177,7 @@ function Bubble({ m }: { m: Msg }) {
       </div>
       {m.quick && (
         <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
-          {m.quick.map((q) => <span key={q} className="rounded-full border border-azure/50 px-2.5 py-1 text-[0.72rem] text-[#9cc0ff]">{q}</span>)}
+          {m.quick.map((q) => <span key={q} className="rounded-full border border-azure/50 px-2.5 py-1 text-[0.72rem] text-gold">{q}</span>)}
         </div>
       )}
     </div>

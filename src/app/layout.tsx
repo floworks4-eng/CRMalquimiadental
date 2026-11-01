@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: 'Alquimia Dental · CRM/ERP clínico (demo)',
   description: 'Demo navegable del sistema clínico propuesto por Lumen Labs para Alquimia Dental, La Paz.',
 }
-export const viewport: Viewport = { themeColor: '#1e1f21' }
+export const viewport: Viewport = { themeColor: '#242528' }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

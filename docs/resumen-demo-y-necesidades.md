@@ -50,7 +50,7 @@ Stack: Next.js (App Router), TypeScript, Tailwind CSS, three.js con React Three 
 | Asistente de WhatsApp (simulado) | `/whatsapp` | Teléfono con 3 chats de ejemplo, reproducción paso a paso, «Tomar el chat», recordatorios de 48 h y 24 h | Admin, Recepción |
 | Portal público | `/agendar-cita` | Elección de tratamiento, día y hora con disponibilidad real según la agenda; crea la cita con origen Web o Campaña (`?utm_campaign=`) | Público |
 | Analítica | `/analitica` | Ocupación, citas por origen, costo por cita, embudo, tabla de campañas y recorrido del paciente de la demo | Admin |
-| Ingesta de historiales (OCR simulado) | `/ingesta` | Foto o Excel → lectura animada → borrador con campos de baja confianza marcados → aprobación obligatoria | Admin, Odontólogo |
+| Ingesta de historiales (demostración) | `/ingesta` | Foto o Excel de ejemplo → borrador de datos → aprobación obligatoria | Admin, Odontólogo |
 | Equipo y roles | `/equipo` | Equipo y matriz de permisos por módulo | Admin |
 | Ruta de implementación | `/ruta` | Línea de 25 días, 5 fases y el hito del primer paciente real | Admin |
 
@@ -120,7 +120,7 @@ Para cada necesidad se indica si la demo ya la ilustra y qué falta para producc
 | Odontograma por pieza (FDI) | Sí, con 4 diagnósticos | Más diagnósticos y superficies por pieza, historial de cambios por fecha |
 | Plan de tratamiento con precios | Sí, con sesiones «hoy» y «próxima sesión» | Presupuesto aceptado, seguimiento de avance y saldo |
 | Alertas de seguridad (alergias, antecedentes) | Alerta visible en inicio y consulta | Alertas por interacción medicamentosa, embarazo, anticoagulantes |
-| Migración de fichas en papel y Excel | OCR simulado con revisión | OCR real, revisión humana siempre antes de guardar, registro de quién aprobó |
+| Migración de fichas en papel y Excel | Demostración simulada con revisión | Importación real pendiente de definir y validar |
 
 ### 4.3 Insumos y costos
 
@@ -175,7 +175,7 @@ Necesidades que la demo no cubre y que deben resolverse antes del piloto:
 | Usuarios | Selector de rol | Autenticación real |
 | WhatsApp y recordatorios | Guion animado | API oficial de WhatsApp Business |
 | Meta Ads y TikTok | Cifras `[ejemplo]` | Conexión a las cuentas publicitarias |
-| OCR | Datos prefabricados | Servicio de OCR con revisión humana |
+| Importación de historiales | Datos prefabricados | Flujo de importación por definir |
 | Pagos | Registro de movimientos | Registro + conciliación; sin cobro automático salvo que se acuerde |
 | QR de check-in | Funciona entre pestañas del mismo navegador | Funciona entre cualquier dispositivo |
 | Precios, horarios, insumos | `[ejemplo]` | Datos reales de la clínica |

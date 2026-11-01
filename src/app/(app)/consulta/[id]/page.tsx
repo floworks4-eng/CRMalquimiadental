@@ -104,7 +104,7 @@ function Session({ db, apptId }: { db: DB; apptId: string }) {
         <div className="flex items-center gap-2">
           <StatusBadge status={a.status} />
           {['agendada', 'confirmada', 'en_espera'].includes(a.status) && (
-            <button className="btn btn-primary" onClick={() => startConsult(a.id)}>INICIAR ATENCIÓN MÉDICA</button>
+            <button className="btn btn-primary" onClick={() => startConsult(a.id)}>Iniciar consulta</button>
           )}
         </div>
       </div>
@@ -202,7 +202,7 @@ function Session({ db, apptId }: { db: DB; apptId: string }) {
           {!locked && (
             <div className="flex justify-end">
               <button className="btn btn-primary btn-xl w-full sm:w-auto" disabled={a.status !== 'en_atencion' || !todayItems.length} onClick={() => setConfirm(true)}>
-                <CheckCircle2 size={20} aria-hidden /> FINALIZAR ATENCIÓN
+                <CheckCircle2 size={20} aria-hidden /> Finalizar consulta
               </button>
             </div>
           )}

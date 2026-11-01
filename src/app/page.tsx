@@ -1,78 +1,26 @@
 'use client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Crown, Stethoscope, ConciergeBell, PlayCircle, CalendarPlus, QrCode, ArrowRight } from 'lucide-react'
-import { setSession, resetDemo, setDemo, CLINIC, type Role } from '@/lib/data'
+import { Stethoscope, ConciergeBell, PlayCircle, CalendarPlus, QrCode, ArrowRight, ShieldCheck } from 'lucide-react'
+import { setSession, resetDemo, setDemo, type Role } from '@/lib/data'
 import { Wordmark } from '@/components/ui'
 
-const ROLES: { role: Role; title: string; who: string; icon: typeof Crown; sees: string }[] = [
-  { role: 'admin', title: 'Administrador', who: 'Doc · Director clínico', icon: Crown, sees: 'Todo: agenda, consulta, caja, inventario, analítica por campaña y equipo.' },
-  { role: 'odontologo', title: 'Odontólogo', who: 'Dra. Valeria Mamani', icon: Stethoscope, sees: 'Solo su agenda y sus pacientes: anamnesis, odontograma 3D y plan.' },
-  { role: 'recepcion', title: 'Recepción', who: 'Paola Condori', icon: ConciergeBell, sees: 'Agenda, check-in QR, caja y WhatsApp. Sin datos clínicos.' },
+const ROLES: { role: Role; title: string; who: string; icon: typeof Stethoscope; description: string; color: string }[] = [
+  { role: 'admin', title: 'Doctor', who: 'Doc · Director de la clínica', icon: ShieldCheck, description: 'Atiende a tus pacientes y lleva el control de tu clínica.', color: 'bg-[#544b39] text-[#efd7a4]' },
+  { role: 'odontologo', title: 'Odontóloga', who: 'Dra. Valeria Mamani', icon: Stethoscope, description: 'Tu agenda, tus pacientes y sus planes de tratamiento.', color: 'bg-[#45464c] text-[#dedee5]' },
+  { role: 'recepcion', title: 'Recepción', who: 'Paola Condori', icon: ConciergeBell, description: 'Organiza las citas, recibe a los pacientes y registra pagos.', color: 'bg-[#4a3e2e] text-[#ead3a7]' },
 ]
 
 export default function Entrada() {
   const router = useRouter()
-  const enter = (role: Role) => {
-    setSession(role)
-    router.push('/inicio')
-  }
-  const guided = () => {
-    resetDemo()
-    setSession('admin')
-    setDemo(0)
-    router.push('/whatsapp')
-  }
-  return (
-    <main className="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 py-10 md:py-16">
-      <div className="halo relative mx-auto text-center">
-        <Wordmark size="lg" />
-        <p className="mt-6 text-sm text-muted">Sistema clínico · {CLINIC.zone}</p>
-      </div>
-
-      <h1 className="eyebrow mt-12 text-center">¿Con qué rol entras?</h1>
-      <ul className="mt-5 grid gap-4 md:grid-cols-3">
-        {ROLES.map(({ role, title, who, icon: Icon, sees }) => (
-          <li key={role}>
-            <button
-              onClick={() => enter(role)}
-              className="glass group flex h-full w-full flex-col items-start p-6 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_rgb(201_169_97/0.5),0_18px_40px_rgb(0_0_0/0.4),0_0_30px_rgb(201_169_97/0.15)]"
-            >
-              <span className="grid h-12 w-12 place-items-center rounded-2xl border border-gold/40 bg-gold/5 text-gold shadow-[0_0_20px_rgb(201_169_97/0.2)]">
-                <Icon size={22} strokeWidth={1.5} aria-hidden />
-              </span>
-              <span className="title-gold mt-5 text-2xl">{title}</span>
-              <span className="mt-1 text-sm text-bone">{who}</span>
-              <span className="mt-3 flex-1 text-sm text-muted">{sees}</span>
-              <span className="mt-5 inline-flex items-center gap-1 text-sm text-gold-soft">
-                Entrar <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-8 flex flex-col items-center gap-3">
-        <button onClick={guided} className="btn btn-primary btn-xl">
-          <PlayCircle size={20} aria-hidden /> DEMO GUIADA · 5 MIN
-        </button>
-        <p className="text-xs text-muted">Empieza desde cero como Administrador y recorre WhatsApp → check-in → consulta → caja → analítica.</p>
-      </div>
-
-      <div className="mt-10 grid gap-3 sm:grid-cols-2">
-        <Link href="/agendar-cita" className="glass flex items-center gap-3 p-4 text-sm hover:ring-1 hover:ring-gold/40">
-          <CalendarPlus className="text-gold" size={20} aria-hidden />
-          <span><span className="block text-bone">Portal público /agendar-cita</span><span className="text-muted">Lo que ve el paciente desde el anuncio</span></span>
-        </Link>
-        <Link href="/check-in" className="glass flex items-center gap-3 p-4 text-sm hover:ring-1 hover:ring-gold/40">
-          <QrCode className="text-gold" size={20} aria-hidden />
-          <span><span className="block text-bone">Check-in del paciente /check-in</span><span className="text-muted">Anamnesis digital desde el celular</span></span>
-        </Link>
-      </div>
-
-      <p className="mt-auto pt-12 text-center text-xs text-muted/80">
-        Datos ficticios · sin backend · Demo preparada por <span className="text-gold-soft">Lumen Labs</span>
-      </p>
-    </main>
-  )
+  const enter = (role: Role) => { setSession(role); router.push('/inicio') }
+  const guided = () => { resetDemo(); setSession('admin'); setDemo(0); router.push('/whatsapp') }
+  return <main className="mx-auto flex min-h-dvh max-w-5xl flex-col px-5 py-10 md:py-14">
+    <header className="flex items-center justify-between gap-4"><Wordmark /><span className="rounded-full border border-gold/20 px-3 py-1.5 text-xs text-gold-soft">Demostración</span></header>
+    <div className="mb-8 mt-14 text-center md:mt-20"><span className="soft-label">San Miguel · La Paz</span><h1 className="title-gold mt-5 text-3xl sm:text-[2.6rem]">Tu clínica, más simple.</h1><p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted">Las citas, tus pacientes y tu equipo en un solo lugar. <br className="hidden sm:block" />Elige tu perfil para empezar.</p></div>
+    <ul className="grid gap-4 md:grid-cols-3">{ROLES.map(({ role, title, who, icon: Icon, description, color }) => <li key={role}><button onClick={() => enter(role)} className="glass group flex h-full w-full flex-col items-start p-6 text-left transition-colors hover:border-gold/40 hover:bg-[#414248]"><span className={`grid h-12 w-12 place-items-center rounded-2xl ${color}`}><Icon size={24} strokeWidth={1.6} aria-hidden /></span><span className="mt-5 text-xl font-semibold tracking-tight">{title}</span><span className="mt-2 text-xs text-muted">{who}</span><span className="mt-4 flex-1 text-sm leading-relaxed text-muted">{description}</span><span className="mt-6 flex w-full items-center justify-between border-t border-white/8 pt-4 text-sm font-medium text-gold">Entrar<ArrowRight size={17} className="transition-transform group-hover:translate-x-1" aria-hidden /></span></button></li>)}</ul>
+    <div className="mt-7 text-center"><button onClick={guided} className="btn btn-ghost text-sm"><PlayCircle size={18} aria-hidden />Ver cómo funciona · recorrido de 5 minutos</button></div>
+    <div className="mt-10 grid gap-3 border-t border-white/8 pt-6 sm:grid-cols-2"><Link href="/agendar-cita" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm hover:bg-white/4"><CalendarPlus className="text-muted" size={20} aria-hidden /><span className="flex-1"><span className="block font-medium">Reservar una cita</span><span className="mt-1 block text-xs text-muted">El portal que verán tus pacientes</span></span><ArrowRight size={16} className="text-muted" aria-hidden /></Link><Link href="/check-in" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm hover:bg-white/4"><QrCode className="text-muted" size={20} aria-hidden /><span className="flex-1"><span className="block font-medium">Registro de llegada</span><span className="mt-1 block text-xs text-muted">La ficha del paciente desde su celular</span></span><ArrowRight size={16} className="text-muted" aria-hidden /></Link></div>
+    <p className="mt-auto pt-10 text-center text-[0.7rem] text-muted/80">Espacio de demostración con datos de ejemplo · Alquimia Dental</p>
+  </main>
 }

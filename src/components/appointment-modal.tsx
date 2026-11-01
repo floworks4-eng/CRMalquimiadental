@@ -18,7 +18,7 @@ export function AppointmentModal({ open, onClose, appt, preset }: {
   preset?: Partial<Appointment>
 }) {
   return (
-    <Modal open={open} onClose={onClose} title={appt ? 'Editar o mover cita' : 'Nueva cita'}>
+    <Modal open={open} onClose={onClose} title={appt ? 'Editar cita' : 'Nueva cita'}>
       {open && <Form appt={appt} preset={preset} onDone={onClose} />}
     </Modal>
   )
@@ -134,7 +134,10 @@ function Form({ appt, preset, onDone }: { appt?: Appointment; preset?: Partial<A
           </select>
         )}
       </Field>
-      <Field label="Origen (atribución)">
+      <details className="rounded-xl border border-white/8 p-3.5 sm:col-span-2" open={!!errors.campaignId || !!appt}>
+      <summary className="text-sm text-muted">Más opciones de la cita</summary>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <Field label="Cómo llegó el paciente">
         {(id) => (
           <select id={id} className="field" value={d.source} onChange={(e) => set('source', e.target.value as Source)}>
             {(['whatsapp', 'web', 'campaign'] as const).map((s) => <option key={s} value={s}>{SOURCE_LABEL[s]}</option>)}
@@ -158,6 +161,8 @@ function Form({ appt, preset, onDone }: { appt?: Appointment; preset?: Partial<A
           </select>
         )}
       </Field>
+      </div>
+      </details>
       {conflict && <p role="alert" className="rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad sm:col-span-2">⚠ {conflict}</p>}
       <div className="flex justify-end gap-2 sm:col-span-2">
         <button type="button" className="btn btn-ghost" onClick={onDone}>Cancelar</button>

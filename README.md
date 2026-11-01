@@ -36,7 +36,7 @@ Roles: Administrador (todo), Odontólogo (solo su agenda y pacientes), Recepció
 ## Qué es simulado
 
 - Sin backend: el estado vive en memoria + `localStorage` (por navegador). Las pestañas del mismo navegador se sincronizan (por eso el check-in en el celular simulado actualiza la recepción).
-- WhatsApp, recordatorios, Meta/TikTok, OCR y pagos son simulados. No se envía nada.
+- WhatsApp, recordatorios, Meta/TikTok, importación de pacientes y pagos son simulados. No se envía nada.
 - Escanear el QR con un celular real abre el formulario, pero ese celular no comparte datos con la laptop (sin backend).
 - Precios, horarios, cantidades de insumos y cifras de campañas son `[ejemplo]`.
 
