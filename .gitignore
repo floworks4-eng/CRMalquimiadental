@@ -11,3 +11,7 @@ test-results
 .env
 .env.local
 .env*.local
+
+.playwright-cli/
+output/playwright/
+supabase/.temp/

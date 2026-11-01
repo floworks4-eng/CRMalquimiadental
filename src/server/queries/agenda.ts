@@ -3,9 +3,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '../supabase/server'
 import { requireMember } from '../auth/guards'
 import { can } from '../auth/permissions'
-import { dayBoundsUtc } from '@/lib/domain/time'
+import { addDays, dayBoundsUtc } from '@/lib/domain/time'
 import type { AppointmentSource, AppointmentStatus } from '@/lib/domain/status'
-import type { AppointmentCard, BookingOptions, DayBoard } from './types'
+import type { AppointmentCard, BookingOptions, DayBoard, CalendarBoard } from './types'
+
+import { calendarDates, type AgendaView } from '@/lib/domain/calendar'
 
 const SELECT = `id, starts_at, ends_at, status, source, notes, cancellation_reason, checked_in_at, updated_at,
   patient:patients(id, full_name),
@@ -15,25 +17,46 @@ const SELECT = `id, starts_at, ends_at, status, source, notes, cancellation_reas
   campaign:campaigns(name)`
 
 type Row = {
-  id: string; starts_at: string; ends_at: string; status: AppointmentStatus; source: AppointmentSource; notes: string | null
-  cancellation_reason: string | null; checked_in_at: string | null; updated_at: string
-  patient: { id: string; full_name: string } | null; dentist: { id: string; full_name: string }
-  cabinet: { id: string; name: string }; treatment: { id: string; name: string } | null; campaign: { name: string } | null
+  id: string
+  starts_at: string
+  ends_at: string
+  status: AppointmentStatus
+  source: AppointmentSource
+  notes: string | null
+  cancellation_reason: string | null
+  checked_in_at: string | null
+  updated_at: string
+  patient: { id: string; full_name: string } | null
+  dentist: { id: string; full_name: string }
+  cabinet: { id: string; name: string }
+  treatment: { id: string; name: string } | null
+  campaign: { name: string } | null
 }
 
 /** Citas con nombres ya resueltos. RLS decide cuales ve cada rol (el odontologo solo las suyas). */
 export async function appointmentCards(
   supabase: SupabaseClient,
-  refine: (q: ReturnType<ReturnType<SupabaseClient['from']>['select']>) => PromiseLike<{ data: unknown; error: unknown }> | ReturnType<ReturnType<SupabaseClient['from']>['select']>,
+  refine: (
+    q: ReturnType<ReturnType<SupabaseClient['from']>['select']>,
+  ) => PromiseLike<{ data: unknown; error: unknown }> | ReturnType<ReturnType<SupabaseClient['from']>['select']>,
 ): Promise<AppointmentCard[]> {
   const { data, error } = await refine(supabase.from('appointments').select(SELECT))
   if (error) throw new Error('No pudimos cargar las citas')
   return ((data ?? []) as Row[]).map((r) => ({
-    id: r.id, startsAt: r.starts_at, endsAt: r.ends_at, status: r.status, source: r.source, notes: r.notes,
-    cancellationReason: r.cancellation_reason, checkedInAt: r.checked_in_at, updatedAt: r.updated_at,
+    id: r.id,
+    startsAt: r.starts_at,
+    endsAt: r.ends_at,
+    status: r.status,
+    source: r.source,
+    notes: r.notes,
+    cancellationReason: r.cancellation_reason,
+    checkedInAt: r.checked_in_at,
+    updatedAt: r.updated_at,
     patient: r.patient ? { id: r.patient.id, fullName: r.patient.full_name } : null,
     dentist: { id: r.dentist.id, fullName: r.dentist.full_name },
-    cabinet: r.cabinet, treatment: r.treatment, campaignName: r.campaign?.name ?? null,
+    cabinet: r.cabinet,
+    treatment: r.treatment,
+    campaignName: r.campaign?.name ?? null,
   }))
 }
 
@@ -49,8 +72,15 @@ export async function getBookingOptions(): Promise<BookingOptions> {
     supabase.from('campaigns').select('id, name').eq('active', true).order('name'),
   ])
   return {
-    dentists: ((members.data ?? []) as unknown as { user_id: string; profiles: { full_name: string } | null }[]).map((m) => ({ id: m.user_id, fullName: m.profiles?.full_name ?? '—' })),
-    treatments: ((treatments.data ?? []) as { id: string; name: string; duration_min: number }[]).map((t) => ({ id: t.id, name: t.name, durationMin: t.duration_min })),
+    dentists: ((members.data ?? []) as unknown as { user_id: string; profiles: { full_name: string } | null }[]).map((m) => ({
+      id: m.user_id,
+      fullName: m.profiles?.full_name ?? '—',
+    })),
+    treatments: ((treatments.data ?? []) as { id: string; name: string; duration_min: number }[]).map((t) => ({
+      id: t.id,
+      name: t.name,
+      durationMin: t.duration_min,
+    })),
     campaigns: (campaigns.data ?? []) as { id: string; name: string }[],
   }
 }
@@ -81,4 +111,52 @@ export async function getDayBoard(date: string): Promise<DayBoard> {
     closedReason: holidayName ? `Feriado: ${holidayName}` : h?.is_closed || !h ? 'La clínica no atiende este día' : null,
     appointments,
   }
+}
+
+/** Calendar periods are read with the signed-in client; RLS still determines every visible appointment. */
+export async function getCalendarBoard(date: string, view: AgendaView): Promise<CalendarBoard> {
+  await requireMember()
+  const dates = calendarDates(date, view)
+  const from = dayBoundsUtc(dates[0])[0]
+  const to = dayBoundsUtc(addDays(dates[dates.length - 1], 1))[0]
+  const supabase = await createClient()
+  const readPeriod = async () => {
+    const appointments: AppointmentCard[] = []
+    for (let offset = 0; ; offset += 500) {
+      const batch = await appointmentCards(supabase, (q) =>
+        q
+          .gte('starts_at', from)
+          .lt('starts_at', to)
+          .order('starts_at')
+          .order('id')
+          .range(offset, offset + 499),
+      )
+      appointments.push(...batch)
+      if (batch.length < 500) return appointments
+    }
+  }
+  const [board, appointments, weekly, holidays] = await Promise.all([
+    getDayBoard(date),
+    readPeriod(),
+    supabase.from('clinic_hours').select('weekday, opens_at, closes_at, is_closed'),
+    supabase
+      .from('clinic_holidays')
+      .select('date, name')
+      .gte('date', dates[0])
+      .lt('date', addDays(dates[dates.length - 1], 1)),
+  ])
+  if (weekly.error || holidays.error) throw new Error('No pudimos cargar el horario del calendario')
+  const hours = (weekly.data ?? []) as { weekday: number; opens_at: string | null; closes_at: string | null; is_closed: boolean }[]
+  const closed = (holidays.data ?? []) as { date: string; name: string }[]
+  const days = dates.map((day) => {
+    const h = hours.find((h) => h.weekday === new Date(day + 'T12:00:00Z').getUTCDay())
+    const holiday = closed.find((value) => value.date === day)
+    const open = h && !h.is_closed && h.opens_at && h.closes_at && !holiday
+    return {
+      date: day,
+      hours: open ? { opens: hhmm(h.opens_at!), closes: hhmm(h.closes_at!) } : null,
+      closedReason: holiday ? `Feriado: ${holiday.name}` : !open ? 'La clínica no atiende este día' : null,
+    }
+  })
+  return { ...board, appointments, days }
 }

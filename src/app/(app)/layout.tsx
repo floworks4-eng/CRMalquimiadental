@@ -12,10 +12,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const r = s.member.role
   // El menu muestra lo que el rol puede usar; la autoridad real es el servidor y RLS.
   const items: NavItem[] = [
-    { href: '/inicio', label: 'Inicio', icon: 'inicio' },
+    { href: '/inicio', label: 'Mi día', icon: 'inicio' },
     { href: '/agenda', label: 'Agenda', icon: 'agenda' },
-    ...(can(r, 'encounters.read') ? [{ href: '/consulta', label: 'Consulta', icon: 'consulta' as const }] : []),
-    ...(can(r, 'reception.board') ? [{ href: '/recepcion', label: 'Recepción', icon: 'recepcion' as const }] : []),
     { href: '/pacientes', label: 'Pacientes', icon: 'pacientes' },
     ...(can(r, 'cash.read') ? [{ href: '/caja', label: 'Caja', icon: 'caja' as const }] : []),
     { href: '/inventario', label: 'Inventario', icon: 'inventario' },
@@ -23,7 +21,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: '/cuenta', label: 'Mi cuenta', icon: 'cuenta' },
   ]
   return (
-    <AppShell user={{ name: s.fullName ?? s.email ?? 'Usuario', roleLabel: ROLE_LABEL[r] }} clinic={s.member.clinicName} items={items} notifications={await listNotifications()}>
+    <AppShell
+      user={{ name: s.fullName ?? s.email ?? 'Usuario', roleLabel: ROLE_LABEL[r] }}
+      clinic={s.member.clinicName}
+      items={items}
+      notifications={await listNotifications()}
+    >
       {children}
     </AppShell>
   )

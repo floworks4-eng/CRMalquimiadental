@@ -58,3 +58,5 @@ export type DayBoard = BookingOptions & {
 }
 
 export type Slot = { start: string; end: string; dentistId: string; cabinetId: string }
+
+export type CalendarBoard = DayBoard & { days: import('@/lib/domain/calendar').CalendarDay[] }

@@ -3,14 +3,24 @@ import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { X, Lock } from 'lucide-react'
 import { initials } from '@/lib/domain/text'
 
-export function Card({ children, className = '', title, action, as: Tag = 'section' }: {
-  children: ReactNode; className?: string; title?: ReactNode; action?: ReactNode; as?: 'section' | 'div'
+export function Card({
+  children,
+  className = '',
+  title,
+  action,
+  as: Tag = 'section',
+}: {
+  children: ReactNode
+  className?: string
+  title?: ReactNode
+  action?: ReactNode
+  as?: 'section' | 'div'
 }) {
   return (
     <Tag className={`glass p-5 ${className}`}>
       {(title || action) && (
         <header className="mb-4 flex items-center justify-between gap-3">
-          {title && <h2 className="title-gold text-lg">{title}</h2>}
+          {title && <h2 className="section-heading">{title}</h2>}
           {action}
         </header>
       )}
@@ -21,10 +31,10 @@ export function Card({ children, className = '', title, action, as: Tag = 'secti
 
 export function PageHeader({ eyebrow, title, children }: { eyebrow?: string; title: string; children?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
       <div>
-        {eyebrow && <p className="eyebrow mb-1">{eyebrow}</p>}
-        <h1 className="title-gold text-3xl md:text-4xl">{title}</h1>
+        <h1 className="title-gold text-3xl md:text-[2rem]">{title}</h1>
+        {eyebrow && <p className="mt-2 text-sm leading-relaxed text-muted">{eyebrow}</p>}
       </div>
       {children && <div className="flex flex-wrap gap-2">{children}</div>}
     </div>
@@ -34,8 +44,8 @@ export function PageHeader({ eyebrow, title, children }: { eyebrow?: string; tit
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
     <div className="glass px-4 py-3">
-      <p className="eyebrow">{label}</p>
-      <p className="num mt-1 text-2xl text-bone">{value}</p>
+      <p className="text-sm text-muted">{label}</p>
+      <p className="num mt-2 text-3xl font-semibold text-bone">{value}</p>
       {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
     </div>
   )
@@ -45,8 +55,8 @@ export function Avatar({ name, size = 36 }: { name: string; size?: number }) {
   return (
     <span
       aria-hidden
-      className="inline-grid shrink-0 place-items-center rounded-full border border-gold/40 bg-gradient-to-b from-white/10 to-white/0 font-display text-gold"
-      style={{ width: size, height: size, fontSize: size * 0.38 }}
+      className="inline-grid shrink-0 place-items-center rounded-full border border-gold/20 bg-gold/10 font-medium text-gold-soft"
+      style={{ width: size, height: size, fontSize: size * 0.34 }}
     >
       {initials(name)}
     </span>
@@ -54,7 +64,19 @@ export function Avatar({ name, size = 36 }: { name: string; size?: number }) {
 }
 
 /** Modal accesible: foco inicial, Escape para cerrar, foco atrapado con <dialog>. */
-export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  wide,
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  children: ReactNode
+  wide?: boolean
+}) {
   const ref = useRef<HTMLDialogElement>(null)
   const id = useId()
   useEffect(() => {
@@ -75,12 +97,14 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
       aria-labelledby={id}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
-      className={`glass glass-strong m-auto w-[calc(100%-2rem)] p-0 text-bone backdrop:bg-black/60 backdrop:backdrop-blur-sm ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
+      className={`glass glass-strong m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto p-0 text-bone backdrop:bg-black/60 backdrop:backdrop-blur-sm ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
     >
       {open && (
         <div className="fade-in p-5 md:p-6">
           <div className="mb-4 flex items-start justify-between gap-4">
-            <h2 id={id} className="title-gold text-xl">{title}</h2>
+            <h2 id={id} className="title-gold text-xl">
+              {title}
+            </h2>
             <button className="btn btn-ghost -mr-2 -mt-1 p-2" onClick={onClose} aria-label="Cerrar">
               <X size={18} />
             </button>
@@ -92,17 +116,33 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   )
 }
 
-export function Field({ label, error, children, hint }: { label: string; error?: string; hint?: string; children: (id: string, describedBy?: string) => ReactNode }) {
+export function Field({
+  label,
+  error,
+  children,
+  hint,
+}: {
+  label: string
+  error?: string
+  hint?: string
+  children: (id: string, describedBy?: string) => ReactNode
+}) {
   const id = useId()
   const errId = error ? id + '-err' : hint ? id + '-hint' : undefined
   return (
     <div>
-      <label htmlFor={id} className="label">{label}</label>
+      <label htmlFor={id} className="label">
+        {label}
+      </label>
       {children(id, errId)}
       {error ? (
-        <p id={errId} role="alert" className="mt-1 text-xs text-bad">{error}</p>
+        <p id={errId} role="alert" className="mt-1 text-xs text-bad">
+          {error}
+        </p>
       ) : hint ? (
-        <p id={errId} className="mt-1 text-xs text-muted">{hint}</p>
+        <p id={errId} className="mt-1 text-xs text-muted">
+          {hint}
+        </p>
       ) : null}
     </div>
   )
@@ -123,7 +163,7 @@ export function Bar({ value, max, color = 'var(--color-gold)', label }: { value:
   const pct = max ? Math.min(100, (value / max) * 100) : 0
   return (
     <div role="img" aria-label={label} className="h-2.5 w-full overflow-hidden rounded-full bg-white/8">
-      <div className="h-full rounded-full transition-[width] duration-200" style={{ width: pct + '%', background: color, boxShadow: `0 0 12px ${color}` }} />
+      <div className="h-full rounded-full transition-[width] duration-200" style={{ width: pct + '%', background: color }} />
     </div>
   )
 }
@@ -132,8 +172,10 @@ export function Bar({ value, max, color = 'var(--color-gold)', label }: { value:
 export function Wordmark({ size = 'md' }: { size?: 'md' | 'lg' }) {
   return (
     <span className="inline-flex flex-col leading-none" aria-label="Alquimia Dental">
-      <span className={`title-gold italic ${size === 'lg' ? 'text-5xl md:text-6xl' : 'text-2xl'}`}>Alquimia</span>
-      <span className={`mt-1 self-end font-sans font-medium tracking-[0.42em] text-bone/80 ${size === 'lg' ? 'text-sm' : 'text-[0.6rem]'}`}>DENTAL</span>
+      <span className={`wordmark-name ${size === 'lg' ? 'text-5xl md:text-6xl' : 'text-[2rem]'}`}>Alquimia</span>
+      <span className={`mt-1 self-end font-sans font-medium tracking-[0.42em] text-bone/80 ${size === 'lg' ? 'text-sm' : 'text-[0.6rem]'}`}>
+        DENTAL
+      </span>
     </span>
   )
 }

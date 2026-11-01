@@ -9,7 +9,11 @@ import type { PatientStatus } from '@/server/queries/types'
 export const metadata = { title: 'Pacientes · Alquimia Dental' }
 const STATUSES = ['new', 'active', 'in_treatment', 'inactive']
 
-export default async function PacientesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; source?: string; page?: string }> }) {
+export default async function PacientesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; status?: string; source?: string; page?: string }>
+}) {
   const s = await requireCapability('patients.read_directory')
   const sp = await searchParams
   const [result, options] = await Promise.all([
@@ -21,5 +25,12 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
     }),
     getBookingOptions(),
   ])
-  return <PatientsView {...result} options={options} canAssignDentist={s.member.role !== 'dentist' && can(s.member.role, 'patients.create')} />
+  return (
+    <PatientsView
+      canImport={s.member.role === 'clinic_admin'}
+      {...result}
+      options={options}
+      canAssignDentist={s.member.role !== 'dentist' && can(s.member.role, 'patients.create')}
+    />
+  )
 }

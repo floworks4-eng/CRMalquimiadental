@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, staging]
+    branches: [main, staging, feat/F1-04-primera-version]
 
 jobs:
   verify:

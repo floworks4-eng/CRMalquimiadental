@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: 'Sistema clínico interno de Alquimia Dental.',
   robots: { index: false, follow: false },
 }
-export const viewport: Viewport = { themeColor: '#1e1f21' }
+export const viewport: Viewport = { themeColor: '#242528' }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
