@@ -1,0 +1,1188 @@
+{
+  "dataset": "BodyParts3D / Anatomography",
+  "version": "4.3",
+  "variant": "Object set 4.3, ontology tree FMA3.0; official IS-A concept-to-element mapping",
+  "retrieved": "2026-10-16",
+  "license": "CC-BY-SA-2.1-JP",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.1/jp/deed.en",
+  "sourceLicenseStatement": "https://lifesciencedb.jp/bp3d/info/index.html#License",
+  "credit": "BodyParts3D / Anatomography, © The Database Center for Life Science (DBCLS). CC BY-SA 2.1 Japan. Adapted by OrganUI and extended with BodyParts3D 4.3 crown/root separation and oral neurovascular layers for Alquimia Dental.",
+  "mirror": {
+    "repository": "https://github.com/olivercase/body_parts_3d_api",
+    "commit": "fd527e6f4daf732fd814314d9257df5877b844bc"
+  },
+  "mapping": {
+    "file": "docs/model-source/FMA2Obj-4.3.tsv",
+    "sha256": "c3d16c891016da13447de2fc3241d05d92e8f9dc460e363233c03f420b935d4f"
+  },
+  "transform": {
+    "sourceBoundsMm": {
+      "min": [
+        -53.8459,
+        -184.029,
+        1421.63
+      ],
+      "max": [
+        52.5541,
+        -89.8537,
+        1533.35
+      ]
+    },
+    "centerMm": [
+      -0.645900000000001,
+      -136.94135,
+      1477.49
+    ],
+    "scale": 0.025,
+    "axes": "[x, z, -y]"
+  },
+  "runtime": {
+    "file": "teeth.glb",
+    "bytes": 2118424,
+    "sha256": "6e71f1bb9bbd938dd326f49b279d1888177e2639c77b27f654b5e87c96496ab9",
+    "nodes": 66,
+    "materials": 66,
+    "coverage": {
+      "permanentTeethFdi": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ],
+      "missingPermanentTeethFdi": [
+        18,
+        28,
+        38,
+        48
+      ],
+      "includesPrimaryDentition": false,
+      "layers": [
+        "crowns",
+        "roots",
+        "gums",
+        "bone",
+        "arteries",
+        "veins",
+        "nerves"
+      ],
+      "arteriesCoverage": "Right hemiface maxillary, inferior/superior alveolar, dental, mental, palatine, lingual and labial arteries (as segmented in BodyParts3D 4.3)",
+      "veinsCoverage": "Right hemiface maxillary, labial, sublingual and submental veins (as segmented in BodyParts3D 4.3)",
+      "nervesCoverage": "Bilateral superior/inferior alveolar, mental, greater palatine, nasopalatine and lingual nerves (BodyParts3D 4.3)"
+    }
+  },
+  "structures": [
+    {
+      "id": "upper-right-central-incisor",
+      "fma": "FMA55681",
+      "concepts": [
+        "FMA55681"
+      ],
+      "sourceName": "right upper central incisor tooth",
+      "elements": [
+        {
+          "element": "FJ1279",
+          "concept": "FMA55681",
+          "sourceName": "Right upper central incisor tooth",
+          "sha256": "861731e2e8d74b9813e7ac119f26500ce1e2dc7fe5841267f02b312115118032",
+          "bytes": 75981,
+          "vertices": 647,
+          "triangles": 1288
+        }
+      ]
+    },
+    {
+      "id": "upper-right-lateral-incisor",
+      "fma": "FMA55680",
+      "concepts": [
+        "FMA55680"
+      ],
+      "sourceName": "right upper lateral incisor tooth",
+      "elements": [
+        {
+          "element": "FJ1280",
+          "concept": "FMA55680",
+          "sourceName": "Right upper lateral incisor tooth",
+          "sha256": "951c73bb833f9a30a8459a9dff9803147128e161db1ee093cc65cf1b88bc67ff",
+          "bytes": 80638,
+          "vertices": 686,
+          "triangles": 1368
+        }
+      ]
+    },
+    {
+      "id": "upper-right-canine",
+      "fma": "FMA55798",
+      "concepts": [
+        "FMA55798"
+      ],
+      "sourceName": "right upper canine tooth",
+      "elements": [
+        {
+          "element": "FJ1281",
+          "concept": "FMA55798",
+          "sourceName": "Right upper canine tooth",
+          "sha256": "32c4d39304c1750413e6e2b3d6907f6534760fe54351044cdef7e65391ae2596",
+          "bytes": 82111,
+          "vertices": 698,
+          "triangles": 1392
+        }
+      ]
+    },
+    {
+      "id": "upper-right-first-premolar",
+      "fma": "FMA55689",
+      "concepts": [
+        "FMA55689"
+      ],
+      "sourceName": "right first upper premolar tooth",
+      "elements": [
+        {
+          "element": "FJ1277",
+          "concept": "FMA55689",
+          "sourceName": "Right first upper premolar tooth",
+          "sha256": "bc6376db5a376d456646fa8e28453901c3a26336f07357515e16b7820d7c06d3",
+          "bytes": 95516,
+          "vertices": 816,
+          "triangles": 1610
+        }
+      ]
+    },
+    {
+      "id": "upper-right-second-premolar",
+      "fma": "FMA55688",
+      "concepts": [
+        "FMA55688"
+      ],
+      "sourceName": "right second upper premolar tooth",
+      "elements": [
+        {
+          "element": "FJ1278",
+          "concept": "FMA55688",
+          "sourceName": "Right second upper premolar tooth",
+          "sha256": "a1e366a64dc6d3c5074ff1d19681eff8248dfd5dc61d8f93d0309c56921d9c94",
+          "bytes": 87248,
+          "vertices": 748,
+          "triangles": 1466
+        }
+      ]
+    },
+    {
+      "id": "upper-right-first-molar",
+      "fma": "FMA55698",
+      "concepts": [
+        "FMA55698"
+      ],
+      "sourceName": "right first upper molar tooth",
+      "elements": [
+        {
+          "element": "FJ1276",
+          "concept": "FMA55698",
+          "sourceName": "Right first upper molar tooth",
+          "sha256": "b12ecfe56b56eb525ca1da4b56b5cc1c606b916b64d6939211b1282955593eb8",
+          "bytes": 129771,
+          "vertices": 1099,
+          "triangles": 2156
+        }
+      ]
+    },
+    {
+      "id": "upper-right-second-molar",
+      "fma": "FMA55697",
+      "concepts": [
+        "FMA55697"
+      ],
+      "sourceName": "right second upper molar tooth",
+      "elements": [
+        {
+          "element": "FJ1275",
+          "concept": "FMA55697",
+          "sourceName": "Right second upper molar tooth",
+          "sha256": "570f96e4522a62f6bae3cd99039772984f1f0555a97cadf91b6d42c861e7ead4",
+          "bytes": 111297,
+          "vertices": 961,
+          "triangles": 1850
+        }
+      ]
+    },
+    {
+      "id": "upper-left-central-incisor",
+      "fma": "FMA55682",
+      "concepts": [
+        "FMA55682"
+      ],
+      "sourceName": "left upper central incisor tooth",
+      "elements": [
+        {
+          "element": "FJ1265",
+          "concept": "FMA55682",
+          "sourceName": "Left upper central incisor tooth",
+          "sha256": "840be28e64647ee17f8b690eadc32bdb95dfb4a819a36eebdf703c23a1fafc77",
+          "bytes": 75378,
+          "vertices": 646,
+          "triangles": 1288
+        }
+      ]
+    },
+    {
+      "id": "upper-left-lateral-incisor",
+      "fma": "FMA55683",
+      "concepts": [
+        "FMA55683"
+      ],
+      "sourceName": "left upper lateral incisor tooth",
+      "elements": [
+        {
+          "element": "FJ1266",
+          "concept": "FMA55683",
+          "sourceName": "Left upper lateral incisor tooth",
+          "sha256": "f9f6e49004ae6478421a72aa6ddf75b73ebe7b4e5d541f75b67a80f4db092c0e",
+          "bytes": 80596,
+          "vertices": 691,
+          "triangles": 1378
+        }
+      ]
+    },
+    {
+      "id": "upper-left-canine",
+      "fma": "FMA55799",
+      "concepts": [
+        "FMA55799"
+      ],
+      "sourceName": "left upper canine tooth",
+      "elements": [
+        {
+          "element": "FJ1267",
+          "concept": "FMA55799",
+          "sourceName": "Left upper canine tooth",
+          "sha256": "b8f4b9f347c1e4c23eb5e0b278da9926753b631cc47655dc49da6f80074a22a3",
+          "bytes": 81373,
+          "vertices": 698,
+          "triangles": 1392
+        }
+      ]
+    },
+    {
+      "id": "upper-left-first-premolar",
+      "fma": "FMA55690",
+      "concepts": [
+        "FMA55690"
+      ],
+      "sourceName": "left first upper premolar tooth",
+      "elements": [
+        {
+          "element": "FJ1262",
+          "concept": "FMA55690",
+          "sourceName": "Left first upper premolar tooth",
+          "sha256": "9f0e6b624907758b778a1cd3051f3de91b5611775ec0cef60b063af853a3b58a",
+          "bytes": 94899,
+          "vertices": 818,
+          "triangles": 1610
+        }
+      ]
+    },
+    {
+      "id": "upper-left-second-premolar",
+      "fma": "FMA55691",
+      "concepts": [
+        "FMA55691"
+      ],
+      "sourceName": "left second upper premolar tooth",
+      "elements": [
+        {
+          "element": "FJ1264",
+          "concept": "FMA55691",
+          "sourceName": "Left second upper premolar tooth",
+          "sha256": "31611d213c8c0c01918f21f9bd74a73c5d099ecbe567cb6a1605b50e334e6b2f",
+          "bytes": 86531,
+          "vertices": 748,
+          "triangles": 1466
+        }
+      ]
+    },
+    {
+      "id": "upper-left-first-molar",
+      "fma": "FMA55699",
+      "concepts": [
+        "FMA55699"
+      ],
+      "sourceName": "left first upper molar tooth",
+      "elements": [
+        {
+          "element": "FJ1261",
+          "concept": "FMA55699",
+          "sourceName": "Left first upper molar tooth",
+          "sha256": "ef3a9e8a0a5f6e910a34b220e748669e6e8919aa917527151d8b918e4b592401",
+          "bytes": 127629,
+          "vertices": 1084,
+          "triangles": 2156
+        }
+      ]
+    },
+    {
+      "id": "upper-left-second-molar",
+      "fma": "FMA55700",
+      "concepts": [
+        "FMA55700"
+      ],
+      "sourceName": "left second upper molar tooth",
+      "elements": [
+        {
+          "element": "FJ1263",
+          "concept": "FMA55700",
+          "sourceName": "Left second upper molar tooth",
+          "sha256": "d1f79c5f1b744e4366d47a5a19e418c07560df8b465faed9c126e8fb6b9fb306",
+          "bytes": 109684,
+          "vertices": 949,
+          "triangles": 1848
+        }
+      ]
+    },
+    {
+      "id": "lower-left-central-incisor",
+      "fma": "FMA57143",
+      "concepts": [
+        "FMA57143"
+      ],
+      "sourceName": "left lower central incisor tooth",
+      "elements": [
+        {
+          "element": "FJ1258",
+          "concept": "FMA57143",
+          "sourceName": "Left lower central incisor tooth",
+          "sha256": "e8c2dc641de79ea7c12d25516e8b21447129adf244505562699df4c44efabe00",
+          "bytes": 53593,
+          "vertices": 461,
+          "triangles": 918
+        }
+      ]
+    },
+    {
+      "id": "lower-left-lateral-incisor",
+      "fma": "FMA57141",
+      "concepts": [
+        "FMA57141"
+      ],
+      "sourceName": "left lower lateral incisor tooth",
+      "elements": [
+        {
+          "element": "FJ1259",
+          "concept": "FMA57141",
+          "sourceName": "Left lower lateral incisor tooth",
+          "sha256": "989b57b7be508933b4b24a67b89d550e44cd15582b0b660a5c55834bc4882a81",
+          "bytes": 55882,
+          "vertices": 483,
+          "triangles": 960
+        }
+      ]
+    },
+    {
+      "id": "lower-left-canine",
+      "fma": "FMA55687",
+      "concepts": [
+        "FMA55687"
+      ],
+      "sourceName": "left lower canine tooth",
+      "elements": [
+        {
+          "element": "FJ1260",
+          "concept": "FMA55687",
+          "sourceName": "Left lower canine tooth",
+          "sha256": "e9fb8c8cbac421957c1f53d6ce9f8037d17def7a1a0efee5270b755543e9d449",
+          "bytes": 68838,
+          "vertices": 592,
+          "triangles": 1180
+        }
+      ]
+    },
+    {
+      "id": "lower-left-first-premolar",
+      "fma": "FMA55693",
+      "concepts": [
+        "FMA55693"
+      ],
+      "sourceName": "left first lower premolar tooth",
+      "elements": [
+        {
+          "element": "FJ1255",
+          "concept": "FMA55693",
+          "sourceName": "Left first lower premolar tooth",
+          "sha256": "d08a5e3c119ff0630e41aa33da632be65e8a9ce2f49058440c98266f359b794e",
+          "bytes": 68776,
+          "vertices": 592,
+          "triangles": 1176
+        }
+      ]
+    },
+    {
+      "id": "lower-left-second-premolar",
+      "fma": "FMA55692",
+      "concepts": [
+        "FMA55692"
+      ],
+      "sourceName": "left second lower premolar tooth",
+      "elements": [
+        {
+          "element": "FJ1257",
+          "concept": "FMA55692",
+          "sourceName": "Left second lower premolar tooth",
+          "sha256": "c255d26e20a2e2e286fac4301f12a467f55e8147f05c2433f5eb5ef1192823be",
+          "bytes": 65575,
+          "vertices": 566,
+          "triangles": 1122
+        }
+      ]
+    },
+    {
+      "id": "lower-left-first-molar",
+      "fma": "FMA55704",
+      "concepts": [
+        "FMA55704"
+      ],
+      "sourceName": "left first lower molar tooth",
+      "elements": [
+        {
+          "element": "FJ1254",
+          "concept": "FMA55704",
+          "sourceName": "Left first lower molar tooth",
+          "sha256": "3359a5a626603a3d983a486a5481d133a4b94bc6cea9fbe9979b522b7f9945e9",
+          "bytes": 103401,
+          "vertices": 885,
+          "triangles": 1762
+        }
+      ]
+    },
+    {
+      "id": "lower-left-second-molar",
+      "fma": "FMA55703",
+      "concepts": [
+        "FMA55703"
+      ],
+      "sourceName": "left second lower molar tooth",
+      "elements": [
+        {
+          "element": "FJ1256",
+          "concept": "FMA55703",
+          "sourceName": "Left second lower molar tooth",
+          "sha256": "569854154209a267d1c3c45bfcdbf96cede5d9abb36d79fdad65de0525c1282d",
+          "bytes": 95349,
+          "vertices": 823,
+          "triangles": 1616
+        }
+      ]
+    },
+    {
+      "id": "lower-right-central-incisor",
+      "fma": "FMA57142",
+      "concepts": [
+        "FMA57142"
+      ],
+      "sourceName": "right lower central incisor tooth",
+      "elements": [
+        {
+          "element": "FJ1272",
+          "concept": "FMA57142",
+          "sourceName": "Right lower central incisor tooth",
+          "sha256": "dac0438ac261b50b60bb5f887f7c3327f8170ed6c72c2a47e77ffc18c46f8db5",
+          "bytes": 53982,
+          "vertices": 463,
+          "triangles": 920
+        }
+      ]
+    },
+    {
+      "id": "lower-right-lateral-incisor",
+      "fma": "FMA57140",
+      "concepts": [
+        "FMA57140"
+      ],
+      "sourceName": "right lower lateral incisor tooth",
+      "elements": [
+        {
+          "element": "FJ1273",
+          "concept": "FMA57140",
+          "sourceName": "Right lower lateral incisor tooth",
+          "sha256": "304044ab44e68e9159d9b96f9db8fd5ef848cc397fabef3f45738461517d443d",
+          "bytes": 56467,
+          "vertices": 486,
+          "triangles": 958
+        }
+      ]
+    },
+    {
+      "id": "lower-right-canine",
+      "fma": "FMA55686",
+      "concepts": [
+        "FMA55686"
+      ],
+      "sourceName": "right lower canine tooth",
+      "elements": [
+        {
+          "element": "FJ1274",
+          "concept": "FMA55686",
+          "sourceName": "Right lower canine tooth",
+          "sha256": "5a35f8630bcf3194d2f331f5177b7c2b9e0406a7774818cc10991234441f6b30",
+          "bytes": 69255,
+          "vertices": 591,
+          "triangles": 1178
+        }
+      ]
+    },
+    {
+      "id": "lower-right-first-premolar",
+      "fma": "FMA55694",
+      "concepts": [
+        "FMA55694"
+      ],
+      "sourceName": "right first lower premolar tooth",
+      "elements": [
+        {
+          "element": "FJ1269",
+          "concept": "FMA55694",
+          "sourceName": "Right first lower premolar tooth",
+          "sha256": "c31b59f62832048bf955d3b4f906616a3c5a024b2a1cfeab3d1ee61c376ca319",
+          "bytes": 69417,
+          "vertices": 592,
+          "triangles": 1180
+        }
+      ]
+    },
+    {
+      "id": "lower-right-second-premolar",
+      "fma": "FMA55695",
+      "concepts": [
+        "FMA55695"
+      ],
+      "sourceName": "right second lower premolar tooth",
+      "elements": [
+        {
+          "element": "FJ1271",
+          "concept": "FMA55695",
+          "sourceName": "Right second lower premolar tooth",
+          "sha256": "8c3cf1c58d16600014f73d61387b8ac07a3677e9059db1bc0e5ff0d42d48df63",
+          "bytes": 66262,
+          "vertices": 567,
+          "triangles": 1124
+        }
+      ]
+    },
+    {
+      "id": "lower-right-first-molar",
+      "fma": "FMA55705",
+      "concepts": [
+        "FMA55705"
+      ],
+      "sourceName": "right first lower molar tooth",
+      "elements": [
+        {
+          "element": "FJ1268",
+          "concept": "FMA55705",
+          "sourceName": "Right first lower molar tooth",
+          "sha256": "6ab9e1bf1abe2cace3cada408f526617f097bcb0b8280149e609969ff6d4b179",
+          "bytes": 104433,
+          "vertices": 889,
+          "triangles": 1762
+        }
+      ]
+    },
+    {
+      "id": "lower-right-second-molar",
+      "fma": "FMA55706",
+      "concepts": [
+        "FMA55706"
+      ],
+      "sourceName": "right second lower molar tooth",
+      "elements": [
+        {
+          "element": "FJ1270",
+          "concept": "FMA55706",
+          "sourceName": "Right second lower molar tooth",
+          "sha256": "2a622e4bb5aebf0963abe8c367f0b4552c0bdcd76c50b58e46f2846e1a538ad6",
+          "bytes": 95888,
+          "vertices": 818,
+          "triangles": 1620
+        }
+      ]
+    },
+    {
+      "id": "upper-gum",
+      "fma": "FMA59763",
+      "concepts": [
+        "FMA59763"
+      ],
+      "sourceName": "maxillary gingiva",
+      "elements": [
+        {
+          "element": "FJ1252",
+          "concept": "FMA59763",
+          "sourceName": "Maxillary gingiva",
+          "sha256": "e48d35d931ffbe6c5fd4d118fb3e96293e97a65ab0e6c190a844df1553a3f5c7",
+          "bytes": 120586,
+          "vertices": 1115,
+          "triangles": 1848
+        }
+      ]
+    },
+    {
+      "id": "lower-gum",
+      "fma": "FMA59764",
+      "concepts": [
+        "FMA59764"
+      ],
+      "sourceName": "mandibular gingiva",
+      "elements": [
+        {
+          "element": "FJ1253",
+          "concept": "FMA59764",
+          "sourceName": "Mandibular gingiva",
+          "sha256": "191e4e58dfeca645a32dfae7a66914334421a95694d172bb7c5d8388388e2c89",
+          "bytes": 117146,
+          "vertices": 1029,
+          "triangles": 1918
+        }
+      ]
+    },
+    {
+      "id": "right-maxilla",
+      "fma": "FMA53649",
+      "concepts": [
+        "FMA53649"
+      ],
+      "sourceName": "right maxilla",
+      "elements": [
+        {
+          "element": "FJ3375",
+          "concept": "FMA53649",
+          "sourceName": "Right maxilla",
+          "sha256": "867e5c366244097506a919ae85d601a15f0b745c4da27433c08bfb21228a233a",
+          "bytes": 388214,
+          "vertices": 3513,
+          "triangles": 5324
+        }
+      ]
+    },
+    {
+      "id": "left-maxilla",
+      "fma": "FMA53650",
+      "concepts": [
+        "FMA53650"
+      ],
+      "sourceName": "left maxilla",
+      "elements": [
+        {
+          "element": "FJ3269",
+          "concept": "FMA53650",
+          "sourceName": "Left maxilla",
+          "sha256": "59b3ee93b5894c800594be3e7860488c65277f1177ae79744816aecb4b5e6da1",
+          "bytes": 384450,
+          "vertices": 3577,
+          "triangles": 5198
+        }
+      ]
+    },
+    {
+      "id": "mandible",
+      "fma": "FMA52748",
+      "concepts": [
+        "FMA52748"
+      ],
+      "sourceName": "mandible",
+      "elements": [
+        {
+          "element": "FJ3289",
+          "concept": "FMA52748",
+          "sourceName": "Mandible",
+          "sha256": "f0250d55be8e912e9465c55a4c966f9f3bed709f503d3069d3cd19479bbcfe2b",
+          "bytes": 354931,
+          "vertices": 2845,
+          "triangles": 5576
+        }
+      ]
+    },
+    {
+      "id": "upper-arteries",
+      "layer": "arteries",
+      "arch": "upper",
+      "fma": "FMA49762",
+      "concepts": [
+        "FMA49762",
+        "FMA49765",
+        "FMA49758",
+        "FMA79551",
+        "FMA79572",
+        "FMA49802",
+        "FMA79568",
+        "FMA66456",
+        "FMA49571"
+      ],
+      "sourceName": "maxillary, alveolar and palatine arteries (right hemiface in BodyParts3D 4.3)",
+      "elements": [
+        {
+          "element": "FJ5077",
+          "bp": "BP29655",
+          "concept": "FMA49762",
+          "sourceName": "Dental branch of right posterior superior alveolar artery",
+          "sha256": "6d7b3c5f01cc6349f1584dfaa8aca6e0ae324928964cc2c86db8cc9c32897e8c",
+          "bytes": 24977,
+          "vertices": 231,
+          "triangles": 408
+        },
+        {
+          "element": "FJ5153",
+          "bp": "BP29657",
+          "concept": "FMA49765",
+          "sourceName": "Peridental branch of right posterior superior alveolar artery",
+          "sha256": "82343e5d839a2805def5db37fb559f665dbfec7d37c16b6288e9abc01b50ac2d",
+          "bytes": 28805,
+          "vertices": 273,
+          "triangles": 452
+        },
+        {
+          "element": "FJ5169",
+          "bp": "BP29709",
+          "concept": "FMA49758",
+          "sourceName": "Right posterior superior alveolar artery",
+          "sha256": "067fc8dab4a3102f7bf846c5b2019b9d0b1f965ef52fdccdc1cd6a80c6083e34",
+          "bytes": 19725,
+          "vertices": 193,
+          "triangles": 308
+        },
+        {
+          "element": "FJ5102",
+          "bp": "BP29057",
+          "concept": "FMA79551",
+          "sourceName": "Trunk of right infra-orbital artery",
+          "sha256": "4b10e72dcccc909b587a8965f953a4947410661637bd61340b1f57d32357ee00",
+          "bytes": 36462,
+          "vertices": 348,
+          "triangles": 564
+        },
+        {
+          "element": "FJ5087",
+          "bp": "BP28884",
+          "concept": "FMA79572",
+          "sourceName": "Trunk of right greater palatine artery",
+          "sha256": "9b600dc7e9c8c331cd481e37471027913f2f8a0800540587cc43e960fac69f29",
+          "bytes": 78575,
+          "vertices": 971,
+          "triangles": 778
+        },
+        {
+          "element": "FJ5116",
+          "bp": "BP29671",
+          "concept": "FMA49802",
+          "sourceName": "Right lesser palatine artery",
+          "sha256": "851ffc482b293ccf51b64ff187a286c46f2066317a693f402416812bb39b55db",
+          "bytes": 54200,
+          "vertices": 623,
+          "triangles": 644
+        },
+        {
+          "element": "FJ5078",
+          "bp": "BP28995",
+          "concept": "FMA79568",
+          "sourceName": "Trunk of right descending palatine artery",
+          "sha256": "1798223051fce75749db50e239c4fea3de030a5d3467d89dc51be03381fc07d2",
+          "bytes": 37137,
+          "vertices": 326,
+          "triangles": 626
+        },
+        {
+          "element": "FJ5122",
+          "bp": "BP29186",
+          "concept": "FMA66456",
+          "sourceName": "Trunk of right maxillary artery",
+          "sha256": "26e7125902e927a563c823716287806ec78b40399cc82e0c146f8695cafd55ab",
+          "bytes": 50440,
+          "vertices": 438,
+          "triangles": 852
+        },
+        {
+          "element": "FJ5202",
+          "bp": "BP29708",
+          "concept": "FMA49571",
+          "sourceName": "Right superior labial artery",
+          "sha256": "cdfd859125ae207c55c43e8eff6a1a7fadcaeb268b5204476dbb05e2f6e78c8d",
+          "bytes": 58367,
+          "vertices": 644,
+          "triangles": 748
+        }
+      ]
+    },
+    {
+      "id": "lower-arteries",
+      "layer": "arteries",
+      "arch": "lower",
+      "fma": "FMA49696",
+      "concepts": [
+        "FMA49696",
+        "FMA49709",
+        "FMA49705",
+        "FMA49568",
+        "FMA66447",
+        "FMA49544",
+        "FMA49562"
+      ],
+      "sourceName": "inferior alveolar, dental, mental and sublingual arteries (right hemiface in BodyParts3D 4.3)",
+      "elements": [
+        {
+          "element": "FJ5089",
+          "bp": "BP29679",
+          "concept": "FMA49696",
+          "sourceName": "Right inferior alveolar artery",
+          "sha256": "e85d07d2229813aec49679b64d17b23c950fbb48aebd0aa8a781989b234a055c",
+          "bytes": 183061,
+          "vertices": 1499,
+          "triangles": 2994
+        },
+        {
+          "element": "FJ5076",
+          "bp": "BP29665",
+          "concept": "FMA49709",
+          "sourceName": "Dental branch of right inferior alveolar artery",
+          "sha256": "1cf8e6b86ae269c3887ea4ab4bac00bda565dfc9304d92419742cf6f5d2082be",
+          "bytes": 101961,
+          "vertices": 944,
+          "triangles": 1588
+        },
+        {
+          "element": "FJ5131",
+          "bp": "BP29670",
+          "concept": "FMA49705",
+          "sourceName": "Right mental artery",
+          "sha256": "61ce1d326315f9a9deb7100fde21835672e7bc1bb65237428a6c866b87bd86ff",
+          "bytes": 99749,
+          "vertices": 1085,
+          "triangles": 1258
+        },
+        {
+          "element": "FJ5095",
+          "bp": "BP29694",
+          "concept": "FMA49568",
+          "sourceName": "Right inferior labial artery",
+          "sha256": "5717830537bd15f1ee67b04e312e10b4f5fdaaca604742f8481f15624fd58332",
+          "bytes": 44471,
+          "vertices": 442,
+          "triangles": 656
+        },
+        {
+          "element": "FJ5117",
+          "bp": "BP29142",
+          "concept": "FMA66447",
+          "sourceName": "Trunk of right lingual artery",
+          "sha256": "ead8392c4484a334ebc42a21ac00cfff4d4e21b08933c759d941fdb75b73794f",
+          "bytes": 38985,
+          "vertices": 345,
+          "triangles": 654
+        },
+        {
+          "element": "FJ5190",
+          "bp": "BP29680",
+          "concept": "FMA49544",
+          "sourceName": "Right sublingual artery",
+          "sha256": "e165900a9e1dddb183bc309fabfff1de48bd87bf5b8ef9451be237520ad7475e",
+          "bytes": 29582,
+          "vertices": 366,
+          "triangles": 310
+        },
+        {
+          "element": "FJ5192",
+          "bp": "BP29690",
+          "concept": "FMA49562",
+          "sourceName": "Right submental artery",
+          "sha256": "75a4e7e9750418beb417fda3df7e321e798dff3daf65aebd40f1092e0bd167c1",
+          "bytes": 51063,
+          "vertices": 587,
+          "triangles": 616
+        }
+      ]
+    },
+    {
+      "id": "oral-veins",
+      "layer": "veins",
+      "arch": "both",
+      "fma": "FMA77908",
+      "concepts": [
+        "FMA77908",
+        "FMA52539",
+        "FMA52542",
+        "FMA50837",
+        "FMA50926"
+      ],
+      "sourceName": "maxillary, labial, sublingual and submental veins (right hemiface in BodyParts3D 4.3)",
+      "elements": [
+        {
+          "element": "FJ5123",
+          "bp": "BP28804",
+          "concept": "FMA77908",
+          "sourceName": "Trunk of right maxillary vein",
+          "sha256": "d0d329ba7d76f094897dc42939b225da161c065ea88ba1200cb6bb2940b4f2de",
+          "bytes": 82410,
+          "vertices": 701,
+          "triangles": 1398
+        },
+        {
+          "element": "FJ5203",
+          "bp": "BP28797",
+          "concept": "FMA52539",
+          "sourceName": "Right superior labial vein",
+          "sha256": "53ca1e5d2b39c74c0d0d5efb72bc3e8e21db3f9c8d3729e7be78e54fd301d154",
+          "bytes": 60178,
+          "vertices": 587,
+          "triangles": 870
+        },
+        {
+          "element": "FJ5096",
+          "bp": "BP28737",
+          "concept": "FMA52542",
+          "sourceName": "Right inferior labial vein",
+          "sha256": "f218cda57e9b82a2922adfd1025eb1baf27ae18f0ab545b170f1632a45a9914d",
+          "bytes": 92844,
+          "vertices": 827,
+          "triangles": 1496
+        },
+        {
+          "element": "FJ5191",
+          "bp": "BP28822",
+          "concept": "FMA50837",
+          "sourceName": "Right sublingual vein",
+          "sha256": "dde9c6e3fbdf9734632197f89ef45e6f1e04ce2102f09c7f7e62b25ddcf97085",
+          "bytes": 51707,
+          "vertices": 544,
+          "triangles": 688
+        },
+        {
+          "element": "FJ5193",
+          "bp": "BP28752",
+          "concept": "FMA50926",
+          "sourceName": "Right submental vein",
+          "sha256": "c67c81c9e930004422919acdb51c4ea7abbbeebe53656f5ff331fa0fcb198bb1",
+          "bytes": 86504,
+          "vertices": 793,
+          "triangles": 1352
+        }
+      ]
+    },
+    {
+      "id": "upper-nerves",
+      "layer": "nerves",
+      "arch": "upper",
+      "fma": "FMA52941",
+      "concepts": [
+        "FMA52941",
+        "FMA52942",
+        "FMA52939",
+        "FMA52940",
+        "FMA52936",
+        "FMA52937",
+        "FMA52803",
+        "FMA52804",
+        "FMA52798",
+        "FMA52799"
+      ],
+      "sourceName": "bilateral superior alveolar (anterior, middle, posterior), greater palatine and nasopalatine nerves",
+      "elements": [
+        {
+          "element": "FJ3892",
+          "bp": "BP29071",
+          "concept": "FMA52941",
+          "sourceName": "Right anterior superior alveolar nerve",
+          "sha256": "576e6451f91fd44c6ce28fdfd5986eb6bd6ee7c15f09f52ed95d411d55d5a292",
+          "bytes": 102300,
+          "vertices": 968,
+          "triangles": 1538
+        },
+        {
+          "element": "FJ3930",
+          "bp": "BP29082",
+          "concept": "FMA52942",
+          "sourceName": "Left anterior superior alveolar nerve",
+          "sha256": "ce2cfc344ca89a5d7e56e168d279d652a50860ea3ec4f4c5eef01f3b65dc22aa",
+          "bytes": 102220,
+          "vertices": 965,
+          "triangles": 1564
+        },
+        {
+          "element": "FJ3991",
+          "bp": "BP28993",
+          "concept": "FMA52939",
+          "sourceName": "Right middle superior alveolar nerve",
+          "sha256": "1171bd1816579f1b7e98174e2e2ce46c9e5d15c5369034b1b6f242f0ddb25808",
+          "bytes": 76699,
+          "vertices": 691,
+          "triangles": 1228
+        },
+        {
+          "element": "FJ3957",
+          "bp": "BP29084",
+          "concept": "FMA52940",
+          "sourceName": "Left middle superior alveolar nerve",
+          "sha256": "e76340fbdf8782335e603cbf47f5e46cc2fdbab9f9ba90e87075c644c2c92fc5",
+          "bytes": 78130,
+          "vertices": 713,
+          "triangles": 1250
+        },
+        {
+          "element": "FJ4003",
+          "bp": "BP28997",
+          "concept": "FMA52936",
+          "sourceName": "Right posterior superior alveolar nerve",
+          "sha256": "81458ca8ba6a3e600ea48f30ad8e74efcb6b81eef49cd820b85050bb046a000f",
+          "bytes": 106723,
+          "vertices": 972,
+          "triangles": 1658
+        },
+        {
+          "element": "FJ3975",
+          "bp": "BP29013",
+          "concept": "FMA52937",
+          "sourceName": "Left posterior superior alveolar nerve",
+          "sha256": "47f19a959066883cd56e2508c15a5161e442a78e249610b26fca810e733aa186",
+          "bytes": 105872,
+          "vertices": 965,
+          "triangles": 1686
+        },
+        {
+          "element": "FJ3902",
+          "bp": "BP29212",
+          "concept": "FMA52803",
+          "sourceName": "Right greater palatine nerve",
+          "sha256": "de6bcfc880cc87de8e945898dc882298db5b7307ddb723115461c68a10defd23",
+          "bytes": 79995,
+          "vertices": 812,
+          "triangles": 1088
+        },
+        {
+          "element": "FJ3940",
+          "bp": "BP29137",
+          "concept": "FMA52804",
+          "sourceName": "Left greater palatine nerve",
+          "sha256": "0f52ddabacff1ee7ec335536d40f197d41e500c00ee8e2b6b3c1d425b679866f",
+          "bytes": 79875,
+          "vertices": 825,
+          "triangles": 1088
+        },
+        {
+          "element": "FJ3993",
+          "bp": "BP29147",
+          "concept": "FMA52798",
+          "sourceName": "Right nasopalatine nerve",
+          "sha256": "ee1728878871e867bf6fa41be7d9864634b71419a99c7040e1e08a9a057734a0",
+          "bytes": 62555,
+          "vertices": 560,
+          "triangles": 1008
+        },
+        {
+          "element": "FJ3959",
+          "bp": "BP29143",
+          "concept": "FMA52799",
+          "sourceName": "Left nasopalatine nerve",
+          "sha256": "7b347f625403ea3c9f9911c961ea38fd25dfee427375de68baae50154c0873d3",
+          "bytes": 62441,
+          "vertices": 552,
+          "triangles": 1028
+        }
+      ]
+    },
+    {
+      "id": "lower-nerves",
+      "layer": "nerves",
+      "arch": "lower",
+      "fma": "FMA80518",
+      "concepts": [
+        "FMA80518",
+        "FMA80519",
+        "FMA53251",
+        "FMA53252",
+        "FMA80511",
+        "FMA80512"
+      ],
+      "sourceName": "bilateral inferior alveolar, mental and lingual nerves",
+      "elements": [
+        {
+          "element": "FJ3903",
+          "bp": "BP29069",
+          "concept": "FMA80518",
+          "sourceName": "Trunk of right inferior alveolar nerve",
+          "sha256": "2eab9520e09631b4d0b618204dfdf480f07a29f5d1c4954c3bfe72fcda5b3aa3",
+          "bytes": 151847,
+          "vertices": 1258,
+          "triangles": 2510
+        },
+        {
+          "element": "FJ3942",
+          "bp": "BP29102",
+          "concept": "FMA80519",
+          "sourceName": "Trunk of left inferior alveolar nerve",
+          "sha256": "47f86e1c2bd4aefa937b1e30c56fdb7371c94564ef58161b9fa44485e8317bab",
+          "bytes": 153857,
+          "vertices": 1283,
+          "triangles": 2562
+        },
+        {
+          "element": "FJ3990",
+          "bp": "BP28919",
+          "concept": "FMA53251",
+          "sourceName": "Right mental nerve",
+          "sha256": "cac2afe3a3e1de780161592f430b2734420e6535ed5b1115dc5070fe29db42d5",
+          "bytes": 88218,
+          "vertices": 887,
+          "triangles": 1224
+        },
+        {
+          "element": "FJ3956",
+          "bp": "BP28937",
+          "concept": "FMA53252",
+          "sourceName": "Left mental nerve",
+          "sha256": "fa99a0de8a38dde67a7c5e19a7a86aca6b4e02f456fa0f52e8833f9b1a0097bb",
+          "bytes": 93123,
+          "vertices": 911,
+          "triangles": 1364
+        },
+        {
+          "element": "FJ3984",
+          "bp": "BP29156",
+          "concept": "FMA80511",
+          "sourceName": "Trunk of right lingual nerve",
+          "sha256": "ee5a91f1c971091bfa3398f7d102669308fe82380e22563a81369ecf00c2d8a1",
+          "bytes": 147211,
+          "vertices": 1259,
+          "triangles": 2378
+        },
+        {
+          "element": "FJ3949",
+          "bp": "BP29199",
+          "concept": "FMA80512",
+          "sourceName": "Trunk of left lingual nerve",
+          "sha256": "fc111c90759c98a8884557b3dc6fc1dbf8dec735ff6a1ab96b163b0eafc392bd",
+          "bytes": 147877,
+          "vertices": 1262,
+          "triangles": 2426
+        }
+      ]
+    }
+  ]
+}

@@ -1,80 +1,192 @@
 'use client'
 import { useState } from 'react'
 import { CONDITION_LABEL, CONDITIONS, type ToothCondition } from '@/lib/domain/clinical'
-import { teethRows, type Dentition } from '@/lib/teeth'
+import { dentitionForTooth, getToothInfo, teethQuadrants, type Dentition, type QuadrantZoneGroup } from '@/lib/teeth'
+import { DentalTooth } from './dental-tooth'
 
 export type ToothMark = { condition: ToothCondition; today: boolean }
 
-const ABBR: Record<ToothCondition, string> = {
-  caries: 'C', corona: 'Co', endodoncia: 'E', ausente: 'A', fractura: 'F', sellante: 'S', implante: 'I', protesis: 'P', otro: '•',
+export const CONDITION_ABBR: Record<ToothCondition, string> = {
+  caries: 'C',
+  corona: 'Co',
+  endodoncia: 'E',
+  ausente: 'A',
+  fractura: 'F',
+  sellante: 'S',
+  implante: 'I',
+  protesis: 'P',
+  otro: '•',
 }
 
-/** Odontograma FDI en 2D. Manejable con teclado: cada pieza es un botón con su estado en el nombre accesible. */
-export function Odontogram({ marks, selected, onSelect, initialDentition = 'permanente' }: {
+function simpleToothName(n: number) {
+  const names =
+    dentitionForTooth(n) === 'temporal'
+      ? ['Diente central', 'Diente lateral', 'Colmillo', 'Muela 1', 'Muela 2']
+      : ['Diente central', 'Diente lateral', 'Colmillo', 'Premolar 1', 'Premolar 2', 'Muela 1', 'Muela 2', 'Muela del juicio']
+  return names[(n % 10) - 1]
+}
+
+/** Cuatro zonas del paciente, con nombres simples y numeración FDI secundaria. */
+export function Odontogram({
+  marks,
+  selected,
+  onSelect,
+  initialDentition = 'permanente',
+  dentition: controlledDentition,
+  onDentitionChange,
+}: {
   marks: Record<number, ToothMark>
   selected?: number
   onSelect: (n: number) => void
   initialDentition?: Dentition
+  dentition?: Dentition
+  onDentitionChange?: (d: Dentition) => void
 }) {
-  const [dentition, setDentition] = useState<Dentition>(initialDentition)
-  const rows = teethRows(dentition)
-  const row = (list: number[], label: string, upper: boolean) => (
-    <div role="group" aria-label={label} className="flex justify-center gap-1">
-      {list.map((n, i) => {
-        const m = marks[n]
-        const c = m?.condition
-        return (
-          <button
-            key={n}
-            type="button"
-            onClick={() => onSelect(n)}
-            aria-pressed={selected === n}
-            aria-label={`Pieza ${n}: ${c ? CONDITION_LABEL[c] + (m.today ? ' (hoy)' : '') : 'sin hallazgos'}`}
-            className={`flex w-9 shrink-0 flex-col items-center rounded-lg py-1 ${i === list.length / 2 ? 'ml-3' : ''} ${
-              selected === n ? 'bg-azure/20 ring-2 ring-azure shadow-[0_0_14px_rgb(47_123_255/0.5)]' : 'hover:bg-white/6'
-            } ${upper ? '' : 'flex-col-reverse'}`}
-          >
-            <span className="num text-[0.68rem] text-muted">{n}</span>
-            <svg viewBox="0 0 30 30" className="h-8 w-8" aria-hidden>
-              <rect x="3" y="3" width="24" height="24" rx="5"
-                fill={c === 'corona' || c === 'protesis' ? '#c9a961' : c === 'implante' ? '#8fa3b8' : '#f1e8d6'}
-                fillOpacity={c === 'ausente' ? 0.05 : 0.92}
-                stroke={m?.today ? '#2f7bff' : c === 'ausente' ? '#b5aea3' : '#00000040'} strokeWidth={m?.today ? 2 : 1}
-                strokeDasharray={c === 'ausente' ? '3 2' : undefined} />
-              <rect x="10" y="10" width="10" height="10" rx="2" fill="none" stroke="#00000030" />
-              {c === 'caries' && <circle cx="15" cy="15" r="5" fill="#7a3524" />}
-              {c === 'endodoncia' && <line x1="15" y1="4" x2="15" y2="26" stroke="#2f7bff" strokeWidth="3" />}
-              {c === 'fractura' && <path d="M8 6 14 15 11 16 22 25" fill="none" stroke="#7a3524" strokeWidth="2" />}
-              {c === 'sellante' && <rect x="11" y="11" width="8" height="8" rx="1" fill="#6fd69a" />}
-              {c === 'ausente' && <path d="M7 7 23 23M23 7 7 23" stroke="#ff8a80" strokeWidth="2" />}
-            </svg>
-            <span className="num h-3 text-[0.62rem] leading-3 text-gold-soft">{c ? ABBR[c] : ''}</span>
-          </button>
-        )
-      })}
+  const [internalDentition, setInternalDentition] = useState<Dentition>(() => (selected ? dentitionForTooth(selected) : initialDentition))
+  const dentition = controlledDentition ?? internalDentition
+  const handleDentitionChange = (next: Dentition) => {
+    if (next === dentition) return
+    setInternalDentition(next)
+    // El padre puede limpiar `selected` aquí sin cambiar onSelect(number).
+    onDentitionChange?.(next)
+  }
+
+  const quadrants = teethQuadrants(dentition)
+  const visibleSelection = Object.values(quadrants).some((group) => group.teeth.some((n) => n === selected)) ? selected : undefined
+  const selectedInfo = visibleSelection ? getToothInfo(visibleSelection) : null
+  const selectedMark = visibleSelection ? marks[visibleSelection] : undefined
+
+  const renderQuadrant = (group: QuadrantZoneGroup) => (
+    <div
+      key={group.zoneId}
+      role="group"
+      aria-label={`${group.label} (${group.patientOrientation})`}
+      className="min-w-0 rounded-2xl border border-white/10 bg-black/10 p-2"
+    >
+      <div className="mb-1.5 flex items-center justify-between gap-1 border-b border-white/8 px-1 pb-2">
+        <span className="text-xs font-semibold text-bone">{group.label}</span>
+        <span className="text-[10px] text-muted" aria-hidden="true">
+          Q{group.quadrant} · paciente
+        </span>
+      </div>
+      <div className={`grid grid-cols-4 gap-1 ${dentition === 'permanente' ? '@min-[60rem]:grid-cols-8' : '@min-[60rem]:grid-cols-5'}`}>
+        {group.teeth.map((n) => {
+          const info = getToothInfo(n)
+          const m = marks[n]
+          const c = m?.condition
+          const isSelected = selected === n
+          return (
+            <button
+              key={n}
+              type="button"
+              onClick={() => onSelect(n)}
+              aria-pressed={isSelected}
+              aria-label={`${simpleToothName(n)} · ${group.label} · pieza ${n}: ${
+                c ? CONDITION_LABEL[c] + (m.today ? ' (hoy)' : '') : 'sin hallazgos'
+              }`}
+              title={`${info.labelWithNumber} (${info.zoneLabel}) · ${c ? CONDITION_LABEL[c] + (m.today ? ' (hoy)' : ' (previo)') : 'sin hallazgos'}`}
+              className={`relative flex min-h-[76px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-xl border py-1.5 text-center transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+                isSelected ? 'border-gold/70 bg-gold/15 ring-1 ring-gold/40' : 'border-transparent hover:border-white/15 hover:bg-white/6'
+              }`}
+            >
+              <DentalTooth
+                tooth={n}
+                condition={c}
+                selected={isSelected}
+                upper={group.arch === 'upper'}
+                className="h-[52px] w-[48px] shrink-0"
+              />
+              <span className={`num text-[11px] leading-none ${isSelected ? 'font-semibold text-gold-soft' : 'text-muted'}`}>
+                <span className="sr-only">FDI </span>
+                {n}
+              </span>
+              {m?.today && (
+                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-sky-300 ring-2 ring-ink" aria-hidden="true" />
+              )}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
+
   return (
-    <div>
-      <div role="group" aria-label="Dentición" className="mb-3 inline-flex rounded-xl border border-white/10 bg-black/20 p-0.5 text-xs">
-        {(['permanente', 'temporal'] as const).map((d) => (
-          <button key={d} type="button" aria-pressed={dentition === d} onClick={() => setDentition(d)}
-            className={`rounded-lg px-3 py-1.5 ${dentition === d ? 'bg-white/10 text-gold ring-1 ring-gold/40' : 'text-muted'}`}>
-            {d === 'permanente' ? 'Permanente 11–48' : 'Temporal 51–85'}
-          </button>
-        ))}
-      </div>
-      <div className="overflow-x-auto pb-1">
-        <div className="mx-auto w-max space-y-3 py-2">
-          {row(rows.upper, 'Arcada superior', true)}
-          <div className="border-t border-dashed border-white/10" />
-          {row(rows.lower, 'Arcada inferior', false)}
+    <div className="@container min-w-0 max-w-full space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div role="group" aria-label="Dentición" className="inline-flex rounded-xl border border-white/10 bg-black/20 p-0.5 text-xs">
+          {(['permanente', 'temporal'] as const).map((d) => (
+            <button
+              key={d}
+              type="button"
+              aria-pressed={dentition === d}
+              onClick={() => handleDentitionChange(d)}
+              className={`min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+                dentition === d ? 'bg-white/12 text-gold ring-1 ring-gold/40 font-medium' : 'text-muted hover:text-bone'
+              }`}
+            >
+              {d === 'permanente' ? 'Adultos' : 'Infantiles'}
+            </button>
+          ))}
         </div>
+
+        <span className="text-[11px] text-muted">{dentition === 'temporal' ? '20 piezas' : '32 piezas'}</span>
       </div>
-      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted" aria-label="Leyenda">
-        {CONDITIONS.map((c) => <li key={c}><span className="num text-gold-soft">{ABBR[c]}</span> = {CONDITION_LABEL[c]}</li>)}
-        <li><span className="inline-block h-2.5 w-2.5 rounded-sm border-2 border-azure align-middle" aria-hidden /> registrado hoy</li>
+
+      <p className="text-xs leading-relaxed text-muted">
+        {dentition === 'temporal' && 'Dientes de leche'}
+        <span className="block text-[11px]">Zonas: derecha e izquierda del paciente.</span>
+      </p>
+
+      <div role="status" aria-live="polite" aria-atomic="true">
+        {selectedInfo && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gold/30 bg-gold/8 px-3 py-2 text-xs">
+            <div>
+              <p className="font-semibold text-bone">{selectedInfo.name}</p>
+              <p className="num text-xs text-muted">FDI {selectedInfo.fdi}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                  selectedMark ? 'border border-gold/40 bg-gold/15 text-bone' : 'border border-white/10 bg-white/5 text-muted'
+                }`}
+              >
+                {selectedMark
+                  ? `${CONDITION_LABEL[selectedMark.condition]}${selectedMark.today ? ' · hoy' : ' · previo'}`
+                  : 'Sin hallazgos registrados'}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid min-w-0 grid-cols-1 gap-2 @min-[520px]:grid-cols-2">
+        {renderQuadrant(quadrants.upperRight)}
+        {renderQuadrant(quadrants.upperLeft)}
+        {renderQuadrant(quadrants.lowerRight)}
+        {renderQuadrant(quadrants.lowerLeft)}
+      </div>
+
+      <ul className="flex flex-wrap gap-x-3 gap-y-1 border-t border-white/8 pt-2 text-[11px] text-muted" aria-label="Leyenda">
+        {CONDITIONS.map((c) => (
+          <li key={c} className="flex items-center gap-1">
+            <DentalTooth condition={c} className="h-7 w-6 shrink-0" />
+            {CONDITION_LABEL[c]}
+          </li>
+        ))}
+        <li className="flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-sky-300" aria-hidden="true" /> Hoy
+        </li>
       </ul>
+
+      <details className="text-xs text-muted">
+        <summary className="min-h-[44px] cursor-pointer content-center select-none rounded-lg py-2 font-medium hover:text-gold focus-visible:outline-2 focus-visible:outline-gold">
+          ¿Qué significa FDI?
+        </summary>
+        <p className="mt-2 leading-relaxed">
+          FDI identifica cada diente con dos cifras: zona y posición desde el centro. Por ejemplo, 11 es el diente central de arriba a la
+          derecha.
+        </p>
+      </details>
     </div>
   )
 }

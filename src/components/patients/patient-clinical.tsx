@@ -4,11 +4,13 @@ import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
 import { FileText, NotebookPen, Stethoscope, ClipboardList, Plus, Camera, ExternalLink } from 'lucide-react'
 import { Field } from '../ui'
-import { Odontogram, type ToothMark } from '../odontogram'
+import type { ToothMark } from '../odontogram'
+import { DentalWorkspace } from '../dental-workspace'
 import { addClinicalNote } from '@/server/actions/patients'
 import { CONDITION_LABEL, INVOICE_STATUS_LABEL, type ToothCondition } from '@/lib/domain/clinical'
 import { formatBs } from '@/lib/domain/money'
 import { formatDate, todayLaPaz } from '@/lib/domain/time'
+import { dentitionForTooth, getToothInfo, type Dentition } from '@/lib/teeth'
 import type { InvoiceSummary, PatientClinical } from '@/server/queries/clinical'
 
 type Entry =
@@ -26,7 +28,16 @@ const finding = (s: string) => {
 /** Historia clínica en la ficha. Solo la reciben admin y el odontólogo del paciente (el servidor decide). */
 export function PatientClinicalView({ patientId, data, child }: { patientId: string; data: PatientClinical; child: boolean }) {
   const [selected, setSelected] = useState<number>()
+  const [dentition, setDentition] = useState<Dentition>(child ? 'temporal' : 'permanente')
   const [filter, setFilter] = useState<keyof typeof FILTERS>('all')
+  const selectedInfo = selected ? getToothInfo(selected) : undefined
+
+  const handleSelectTooth = (n: number | undefined) => {
+    setSelected(n)
+    if (n !== undefined) {
+      setDentition(dentitionForTooth(n))
+    }
+  }
   const marks = useMemo(() => {
     const m: Record<number, ToothMark> = {}
     for (const f of data.findings) m[f.tooth] = { condition: f.condition, today: false }
@@ -35,28 +46,43 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
   const toothHistory = selected ? data.findings.filter((f) => f.tooth === selected) : []
   const pendingTotal = data.pending.reduce((s, i) => s + i.priceCents, 0)
 
-  const timeline = useMemo<Entry[]>(() => [
-    ...data.history.map((item) => ({ kind: 'encounter' as const, date: item.startedAt, item })),
-    ...data.notes.map((item) => ({ kind: 'note' as const, date: item.notedOn + 'T12:00:00', item })),
-    ...data.anamnesisVersions.map((item) => ({ kind: 'anamnesis' as const, date: item.submittedAt, item })),
-  ].sort((a, b) => b.date.localeCompare(a.date)), [data])
+  const timeline = useMemo<Entry[]>(
+    () =>
+      [
+        ...data.history.map((item) => ({ kind: 'encounter' as const, date: item.startedAt, item })),
+        ...data.notes.map((item) => ({ kind: 'note' as const, date: item.notedOn + 'T12:00:00', item })),
+        ...data.anamnesisVersions.map((item) => ({ kind: 'anamnesis' as const, date: item.submittedAt, item })),
+      ].sort((a, b) => b.date.localeCompare(a.date)),
+    [data],
+  )
   const shown = timeline.filter((e) => filter === 'all' || e.kind === filter)
 
   return (
     <>
       <section className="glass p-5" aria-labelledby="hist-h">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 id="hist-h" className="title-gold text-lg">Historial médico <span className="num text-sm text-muted">({timeline.length})</span></h2>
+          <h2 id="hist-h" className="title-gold text-lg">
+            Historial médico <span className="num text-sm text-muted">({timeline.length})</span>
+          </h2>
           <div role="group" aria-label="Filtrar historial" className="flex flex-wrap gap-1">
             {(Object.keys(FILTERS) as (keyof typeof FILTERS)[]).map((f) => (
-              <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}
-                className={`rounded-lg px-2.5 py-1 text-xs ${filter === f ? 'bg-white/10 text-gold ring-1 ring-gold/40' : 'text-muted hover:text-bone'}`}>{FILTERS[f]}</button>
+              <button
+                key={f}
+                type="button"
+                aria-pressed={filter === f}
+                onClick={() => setFilter(f)}
+                className={`rounded-lg px-2.5 py-1 text-xs ${filter === f ? 'bg-white/10 text-gold ring-1 ring-gold/40' : 'text-muted hover:text-bone'}`}
+              >
+                {FILTERS[f]}
+              </button>
             ))}
           </div>
         </div>
         <AddNote patientId={patientId} />
         {shown.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">Sin registros todavía. Aparecen aquí las atenciones, las notas, el historial importado y los cambios de anamnesis.</p>
+          <p className="mt-3 text-sm text-muted">
+            Sin registros todavía. Aparecen aquí las atenciones, las notas, el historial importado y los cambios de anamnesis.
+          </p>
         ) : (
           <ol className="mt-4 space-y-3 border-l border-white/10 pl-4">
             {shown.map((e) => (
@@ -92,13 +118,30 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
       <PatientFiles patientId={patientId} files={data.files} />
 
       <section className="glass p-5">
-        <h2 className="title-gold mb-3 text-lg">Odontograma</h2>
-        <Odontogram marks={marks} selected={selected} onSelect={setSelected} initialDentition={child ? 'temporal' : 'permanente'} />
-        {selected && (
+        <DentalWorkspace
+          marks={marks}
+          selected={selected}
+          onSelect={handleSelectTooth}
+          dentition={dentition}
+          onDentitionChange={setDentition}
+        />
+        {selected && selectedInfo && (
           <div className="mt-3 rounded-xl border border-white/8 bg-black/15 p-3 text-sm" aria-live="polite">
-            <p className="eyebrow mb-1">Pieza {selected}</p>
-            {toothHistory.length === 0 ? <p className="text-muted">Sin hallazgos registrados.</p> : (
-              <ul className="space-y-0.5">{toothHistory.map((f) => <li key={f.recordedAt}><span className="num text-muted">{formatDate(f.recordedAt)}</span> · <span className="text-bone">{CONDITION_LABEL[f.condition]}</span>{f.surfaces.length > 0 && ` (${f.surfaces.join('')})`}</li>)}</ul>
+            <p className="eyebrow mb-1">
+              {selectedInfo.labelWithNumber} · {selectedInfo.zoneLabel}
+            </p>
+            {toothHistory.length === 0 ? (
+              <p className="text-muted">Sin hallazgos registrados.</p>
+            ) : (
+              <ul className="space-y-0.5">
+                {toothHistory.map((f) => (
+                  <li key={f.recordedAt}>
+                    <span className="num text-muted">{formatDate(f.recordedAt)}</span> ·{' '}
+                    <span className="text-bone">{CONDITION_LABEL[f.condition]}</span>
+                    {f.surfaces.length > 0 && ` (${f.surfaces.join('')})`}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         )}
@@ -109,11 +152,16 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
           <h2 className="title-gold text-lg">Plan pendiente</h2>
           {data.pending.length > 0 && <span className="num text-sm text-muted">{formatBs(pendingTotal)}</span>}
         </div>
-        {data.pending.length === 0 ? <p className="text-sm text-muted">Nada pendiente.</p> : (
+        {data.pending.length === 0 ? (
+          <p className="text-sm text-muted">Nada pendiente.</p>
+        ) : (
           <ul className="space-y-1 text-sm">
             {data.pending.map((i) => (
               <li key={i.id} className="flex justify-between gap-2">
-                <span className="text-bone">{i.treatmentName}{i.tooth ? <span className="text-muted"> · pieza {i.tooth}</span> : ''}</span>
+                <span className="text-bone">
+                  {i.treatmentName}
+                  {i.tooth ? <span className="text-muted"> · pieza {i.tooth}</span> : ''}
+                </span>
                 <span className="num">{formatBs(i.priceCents)}</span>
               </li>
             ))}
@@ -131,36 +179,75 @@ function PatientFiles({ patientId, files }: { patientId: string; files: PatientC
   const [message, setMessage] = useState('')
   const upload = async (file: File | undefined) => {
     if (!file) return
-    setPending(true); setError(''); setMessage('')
+    setPending(true)
+    setError('')
+    setMessage('')
     try {
-      const form = new FormData(); form.set('file', file)
+      const form = new FormData()
+      form.set('file', file)
       const response = await fetch(`/api/patients/${patientId}/files`, { method: 'POST', body: form })
-      const result = await response.json() as { error?: string }
+      const result = (await response.json()) as { error?: string }
       if (!response.ok) setError(result.error ?? 'No se pudo guardar el archivo.')
-      else { setMessage('Ficha guardada en el expediente.'); router.refresh() }
-    } catch { setError('No se pudo conectar con el servidor.') }
-    finally { setPending(false) }
+      else {
+        setMessage('Ficha guardada en el expediente.')
+        router.refresh()
+      }
+    } catch {
+      setError('No se pudo conectar con el servidor.')
+    } finally {
+      setPending(false)
+    }
   }
   return (
     <section className="glass p-5">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="title-gold text-lg">Fichas y documentos</h2>
-          <p className="mt-1 text-sm text-muted">Toma una foto del registro en papel o sube un PDF. Queda guardado en la ficha del paciente.</p>
+          <p className="mt-1 text-sm text-muted">
+            Toma una foto del registro en papel o sube un PDF. Queda guardado en la ficha del paciente.
+          </p>
         </div>
         <label className="btn btn-secondary cursor-pointer">
-          <Camera size={16} aria-hidden />{pending ? 'Guardando…' : 'Tomar foto / subir'}
-          <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" disabled={pending} onChange={(e) => upload(e.target.files?.[0])} />
+          <Camera size={16} aria-hidden />
+          {pending ? 'Guardando…' : 'Tomar foto / subir'}
+          <input
+            className="sr-only"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            capture="environment"
+            disabled={pending}
+            onChange={(e) => upload(e.target.files?.[0])}
+          />
         </label>
       </div>
-      {error && <p role="alert" className="mt-3 text-sm text-bad">{error}</p>}
-      {message && <p role="status" className="mt-3 text-sm text-ok">{message}</p>}
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-bad">
+          {error}
+        </p>
+      )}
+      {message && (
+        <p role="status" className="mt-3 text-sm text-ok">
+          {message}
+        </p>
+      )}
       {files.length > 0 && (
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           {files.map((file) => (
-            <li key={file.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/15 px-3 py-2 text-sm">
-              <span className="min-w-0"><span className="block text-bone">{file.kind === 'photo' ? 'Foto de ficha' : 'Documento PDF'}</span><span className="text-xs text-muted">{new Date(file.createdAt).toLocaleDateString('es-BO')} · {(file.sizeBytes / 1024 / 1024).toFixed(1)} MB</span></span>
-              {file.url && <a className="btn btn-ghost shrink-0 px-2 py-1 text-xs text-gold-soft" href={file.url} target="_blank" rel="noreferrer">Abrir <ExternalLink size={13} aria-hidden /></a>}
+            <li
+              key={file.id}
+              className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/15 px-3 py-2 text-sm"
+            >
+              <span className="min-w-0">
+                <span className="block text-bone">{file.kind === 'photo' ? 'Foto de ficha' : 'Documento PDF'}</span>
+                <span className="text-xs text-muted">
+                  {new Date(file.createdAt).toLocaleDateString('es-BO')} · {(file.sizeBytes / 1024 / 1024).toFixed(1)} MB
+                </span>
+              </span>
+              {file.url && (
+                <a className="btn btn-ghost shrink-0 px-2 py-1 text-xs text-gold-soft" href={file.url} target="_blank" rel="noreferrer">
+                  Abrir <ExternalLink size={13} aria-hidden />
+                </a>
+              )}
             </li>
           ))}
         </ul>
@@ -175,14 +262,30 @@ function EncounterEntry({ e }: { e: PatientClinical['history'][number] }) {
       <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
         <Stethoscope size={13} className="text-gold" aria-hidden />
         <span className="num text-gold-soft">{formatDate(e.startedAt)}</span>
-        Atención · {e.dentist}{e.status === 'in_progress' && ' · en curso'}
-        <Link href={`/consulta/${e.appointmentId}`} className="text-gold-soft hover:underline">Abrir</Link>
+        Atención · {e.dentist}
+        {e.status === 'in_progress' && ' · en curso'}
+        <Link href={`/consulta/${e.appointmentId}`} className="text-gold-soft hover:underline">
+          Abrir
+        </Link>
       </p>
       {e.chiefComplaint && <p className="mt-1 text-sm text-bone">{e.chiefComplaint}</p>}
-      {e.items.length > 0 && <p className="text-sm text-muted">Realizado: <span className="text-bone">{e.items.join(', ')}</span></p>}
-      {e.findings.length > 0 && <p className="text-sm text-muted">Hallazgos: <span className="text-bone">{e.findings.map(finding).join(', ')}</span></p>}
+      {e.items.length > 0 && (
+        <p className="text-sm text-muted">
+          Realizado: <span className="text-bone">{e.items.join(', ')}</span>
+        </p>
+      )}
+      {e.findings.length > 0 && (
+        <p className="text-sm text-muted">
+          Hallazgos: <span className="text-bone">{e.findings.map(finding).join(', ')}</span>
+        </p>
+      )}
       {e.notes && <p className="mt-1 whitespace-pre-line text-sm text-bone">{e.notes}</p>}
-      {e.invoice && <p className="text-xs text-muted"><FileText size={12} className="mr-1 inline" aria-hidden />{e.invoice.number} · {formatBs(e.invoice.totalCents)}</p>}
+      {e.invoice && (
+        <p className="text-xs text-muted">
+          <FileText size={12} className="mr-1 inline" aria-hidden />
+          {e.invoice.number} · {formatBs(e.invoice.totalCents)}
+        </p>
+      )}
       {e.addenda.map((a) => (
         <p key={a.createdAt} className="mt-1 rounded-lg border border-white/8 bg-black/15 px-2 py-1 text-xs text-muted">
           Addenda {formatDate(a.createdAt)} ({a.author}) · {a.reason}: <span className="text-bone">{a.notes}</span>
@@ -198,9 +301,16 @@ function AddNote({ patientId }: { patientId: string }) {
   const [f, setF] = useState({ body: '', notedOn: todayLaPaz() })
   const [pending, start] = useTransition()
   const [error, setError] = useState('')
-  if (!open) return <button type="button" className="btn btn-secondary px-3 py-1 text-xs" onClick={() => setOpen(true)}><Plus size={14} aria-hidden />Agregar nota al historial</button>
+  if (!open)
+    return (
+      <button type="button" className="btn btn-secondary px-3 py-1 text-xs" onClick={() => setOpen(true)}>
+        <Plus size={14} aria-hidden />
+        Agregar nota al historial
+      </button>
+    )
   return (
-    <form className="space-y-2 rounded-xl border border-white/8 bg-black/15 p-3"
+    <form
+      className="space-y-2 rounded-xl border border-white/8 bg-black/15 p-3"
       onSubmit={(e) => {
         e.preventDefault()
         start(async () => {
@@ -211,17 +321,48 @@ function AddNote({ patientId }: { patientId: string }) {
           setOpen(false)
           router.refresh()
         })
-      }}>
+      }}
+    >
       <div className="grid gap-2 sm:grid-cols-[150px_1fr]">
-        <Field label="Fecha">{(id) => <input id={id} type="date" max={todayLaPaz()} className="field" value={f.notedOn} onChange={(e) => setF({ ...f, notedOn: e.target.value })} />}</Field>
+        <Field label="Fecha">
+          {(id) => (
+            <input
+              id={id}
+              type="date"
+              max={todayLaPaz()}
+              className="field"
+              value={f.notedOn}
+              onChange={(e) => setF({ ...f, notedOn: e.target.value })}
+            />
+          )}
+        </Field>
         <Field label="Nota" hint="Por ejemplo, transcribir una ficha en papel. No se puede editar después: una corrección es otra nota.">
-          {(id, d) => <textarea id={id} aria-describedby={d} rows={3} maxLength={10_000} className="field" value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} autoFocus />}
+          {(id, d) => (
+            <textarea
+              id={id}
+              aria-describedby={d}
+              rows={3}
+              maxLength={10_000}
+              className="field"
+              value={f.body}
+              onChange={(e) => setF({ ...f, body: e.target.value })}
+              autoFocus
+            />
+          )}
         </Field>
       </div>
-      {error && <p role="alert" className="text-sm text-bad">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-bad">
+          {error}
+        </p>
+      )}
       <div className="flex justify-end gap-2">
-        <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Cancelar</button>
-        <button className="btn btn-primary" disabled={pending || f.body.trim().length < 3}>Guardar nota</button>
+        <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
+          Cancelar
+        </button>
+        <button className="btn btn-primary" disabled={pending || f.body.trim().length < 3}>
+          Guardar nota
+        </button>
       </div>
     </form>
   )
@@ -235,17 +376,30 @@ export function PatientInvoices({ invoices, canCharge }: { invoices: InvoiceSumm
         <h2 className="title-gold text-lg">Cuenta</h2>
         <span className={`num text-sm ${balance ? 'text-warn' : 'text-ok'}`}>{balance ? `Saldo ${formatBs(balance)}` : 'Al día'}</span>
       </div>
-      {invoices.length === 0 ? <p className="text-sm text-muted">Sin facturas.</p> : (
+      {invoices.length === 0 ? (
+        <p className="text-sm text-muted">Sin facturas.</p>
+      ) : (
         <ul>
           {invoices.map((i) => (
             <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-white/6 py-2 text-sm last:border-0">
-              <span><span className="num text-bone">{i.number}</span> <span className="text-xs text-muted">· {formatDate(i.issuedAt)} · {INVOICE_STATUS_LABEL[i.status]}</span></span>
-              <span className="num">{formatBs(i.paidCents)} / {formatBs(i.totalCents)}</span>
+              <span>
+                <span className="num text-bone">{i.number}</span>{' '}
+                <span className="text-xs text-muted">
+                  · {formatDate(i.issuedAt)} · {INVOICE_STATUS_LABEL[i.status]}
+                </span>
+              </span>
+              <span className="num">
+                {formatBs(i.paidCents)} / {formatBs(i.totalCents)}
+              </span>
             </li>
           ))}
         </ul>
       )}
-      {balance > 0 && canCharge && <Link href="/caja" className="btn btn-secondary mt-3 text-xs">Cobrar en Caja</Link>}
+      {balance > 0 && canCharge && (
+        <Link href="/caja" className="btn btn-secondary mt-3 text-xs">
+          Cobrar en Caja
+        </Link>
+      )}
     </section>
   )
 }
