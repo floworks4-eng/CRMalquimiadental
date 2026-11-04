@@ -130,8 +130,7 @@ export function createDentalScene(
 
   function syncMaterials() {
     const { layers, selected, marks } = state
-    const hasSelection = Boolean(selected && TOOTH_3D_COORDS[selected])
-    const through = layers.roots || layers.vessels || layers.nerves || hasSelection
+    const through = layers.roots || layers.vessels || layers.nerves
     for (const mesh of meshes) {
       const mat = mesh.material
       const name = mat.name
@@ -144,7 +143,7 @@ export function createDentalScene(
         const chosen = selected === fdi
         const condition = marks[fdi]?.condition
         mesh.visible = condition !== 'ausente' && (!root || through || (!layers.gums && !layers.bone))
-        alpha = hasSelection && !chosen ? 0.24 : 1
+        alpha = 1
         mat.color.set(root ? '#d9c092' : (CROWN_COLORS[condition] ?? '#f2e8cf'))
         mat.roughness = root ? 0.52 : 0.3
         if (chosen) {

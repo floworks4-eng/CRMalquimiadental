@@ -6,6 +6,7 @@ import { requireCapability } from '../auth/guards'
 import { fail, fieldErrors, ok, type ActionResult } from '../errors'
 import { patientSchema, phoneField, updatePatientSchema } from '../schemas/patients'
 import { normalizeBoPhone } from '@/lib/domain/phone'
+import { CONDITION_LABEL, SURFACES, type ToothCondition } from '@/lib/domain/clinical'
 import type { AppointmentSource } from '@/lib/domain/status'
 import { normalizeName } from '@/lib/domain/text'
 import { pickPatients, recentPatientPicker } from '../queries/patients'
@@ -242,6 +243,36 @@ export async function addClinicalNote(input: unknown): Promise<ActionResult> {
     clinic_id: s.member.clinicId, patient_id: p.data.patientId, body: p.data.body, noted_on: p.data.notedOn, source: 'staff', created_by: s.userId,
   })
   if (error) return fail('FORBIDDEN', 'No se pudo guardar la nota.')
+  revalidatePath(`/pacientes/${p.data.patientId}`)
+  return ok(undefined)
+}
+
+
+/** Guarda el estado actual del diente del paciente desde su odontograma. */
+export async function savePatientToothState(input: unknown): Promise<ActionResult> {
+  const p = z.object({
+    patientId: z.uuid(), tooth: z.number().int(),
+    condition: z.enum(Object.keys(CONDITION_LABEL) as [string, ...string[]]),
+    surfaces: z.array(z.enum(SURFACES)).max(6).default([]),
+  }).safeParse(input)
+  if (!p.success) return fail('VALIDATION', 'Revisa el estado del diente.', fieldErrors(p.error.issues))
+  const s = await requireCapability('encounters.write')
+  const { error } = await (await createClient()).rpc('save_patient_tooth_state', {
+    p_clinic: s.member.clinicId, p_patient: p.data.patientId, p_tooth: p.data.tooth,
+    p_condition: p.data.condition as ToothCondition, p_surfaces: p.data.surfaces, p_updated_by: s.userId,
+  })
+  if (error) return fail('FORBIDDEN', 'No se pudo guardar el estado. Verifica que el paciente esté asignado a tu consulta.')
+  revalidatePath(`/pacientes/${p.data.patientId}`)
+  return ok(undefined)
+}
+
+export async function clearPatientToothState(input: unknown): Promise<ActionResult> {
+  const p = z.object({ patientId: z.uuid(), tooth: z.number().int() }).safeParse(input)
+  if (!p.success) return fail('VALIDATION', 'Diente no válido.')
+  await requireCapability('encounters.write')
+  const { data, error } = await (await createClient()).from('patient_tooth_states')
+    .delete().eq('patient_id', p.data.patientId).eq('tooth_fdi', p.data.tooth).select('id')
+  if (error || !data?.length) return fail('FORBIDDEN', 'No se pudo quitar este estado.')
   revalidatePath(`/pacientes/${p.data.patientId}`)
   return ok(undefined)
 }

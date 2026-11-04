@@ -182,7 +182,7 @@ export type ClinicalNote = { id: string; notedOn: string; body: string; source: 
 export type AnamnesisVersion = { id: string; version: number; submittedAt: string; source: AnamnesisView['source']; summary: string; author: string }
 export type PatientFile = { id: string; kind: 'photo' | 'document'; mime: string; sizeBytes: number; createdAt: string; url: string | null }
 export type PatientClinical = {
-  anamnesis: AnamnesisView | null; findings: Finding[]; pending: PlanItem[]; history: EncounterHistoryItem[]
+  anamnesis: AnamnesisView | null; findings: Finding[]; toothStates: Finding[]; pending: PlanItem[]; history: EncounterHistoryItem[]
   notes: ClinicalNote[]; anamnesisVersions: AnamnesisVersion[]; files: PatientFile[]
 }
 
@@ -212,9 +212,10 @@ export const getPatientClinical = cache(async (patientId: string): Promise<Patie
     }))
     return signedBatches.flat()
   }
-  const [anamnesis, findings, plan, { data: enc }, { data: notes }, { data: versions }, filesWithUrls] = await Promise.all([
+  const [anamnesis, findings, toothRows, plan, { data: enc }, { data: notes }, { data: versions }, filesWithUrls] = await Promise.all([
     getCurrentAnamnesis(patientId),
     findingsOf(supabase, patientId),
+    supabase.from('patient_tooth_states').select('tooth_fdi, condition, surfaces, updated_at').eq('patient_id', patientId).order('updated_at'),
     planOf(supabase, patientId),
     supabase.from('encounters')
       .select('id, appointment_id, status, chief_complaint, notes, started_at, dentist:profiles!encounters_dentist_id_fkey(full_name), invoice:invoices(number, total_cents, paid_cents), addenda:encounter_addenda(reason, notes, created_at, author:profiles(full_name))')
@@ -223,6 +224,8 @@ export const getPatientClinical = cache(async (patientId: string): Promise<Patie
     supabase.from('anamnesis_versions').select('id, version, submitted_at, source, allergies, allergy_other, conditions, medications, author:profiles!anamnesis_versions_submitted_by_fkey(full_name)').eq('patient_id', patientId).order('version', { ascending: false }),
     readFiles(),
   ])
+  const toothStates: Finding[] = ((toothRows.data ?? []) as { tooth_fdi: number; condition: ToothCondition; surfaces: string[]; updated_at: string }[])
+    .map((x) => ({ tooth: x.tooth_fdi, condition: x.condition, surfaces: x.surfaces, encounterId: '', recordedAt: x.updated_at, notes: null }))
   const itemsByEncounter = new Map<string, string[]>()
   for (const item of plan) {
     if (item.completedEncounterId === null) continue
@@ -254,7 +257,7 @@ export const getPatientClinical = cache(async (patientId: string): Promise<Patie
   })
   const clean = (l: string[] | null, none: string) => (l ?? []).filter((x) => x !== none)
   return {
-    anamnesis, findings, pending: plan.filter((i) => i.status !== 'done'), history,
+    anamnesis, findings, toothStates, pending: plan.filter((i) => i.status !== 'done'), history,
     notes: ((notes ?? []) as unknown as { id: string; noted_on: string; body: string; source: 'staff' | 'import'; created_at: string; author: { full_name: string } | null }[])
       .map((n) => ({ id: n.id, notedOn: n.noted_on, body: n.body, source: n.source, createdAt: n.created_at, author: n.author?.full_name ?? '—' })),
     anamnesisVersions: ((versions ?? []) as unknown as {

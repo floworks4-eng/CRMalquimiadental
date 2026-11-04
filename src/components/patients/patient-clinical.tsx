@@ -6,7 +6,7 @@ import { FileText, NotebookPen, Stethoscope, ClipboardList, Plus, Camera, Extern
 import { Field } from '../ui'
 import type { ToothMark } from '../odontogram'
 import { DentalWorkspace } from '../dental-workspace'
-import { addClinicalNote } from '@/server/actions/patients'
+import { addClinicalNote, clearPatientToothState, savePatientToothState } from '@/server/actions/patients'
 import { CONDITION_LABEL, INVOICE_STATUS_LABEL, type ToothCondition } from '@/lib/domain/clinical'
 import { formatBs } from '@/lib/domain/money'
 import { formatDate, todayLaPaz } from '@/lib/domain/time'
@@ -27,13 +27,16 @@ const finding = (s: string) => {
 
 /** Historia clínica en la ficha. Solo la reciben admin y el odontólogo del paciente (el servidor decide). */
 export function PatientClinicalView({ patientId, data, child }: { patientId: string; data: PatientClinical; child: boolean }) {
+  const router = useRouter()
   const [selected, setSelected] = useState<number>()
+  const [surfaces, setSurfaces] = useState<string[]>([])
   const [dentition, setDentition] = useState<Dentition>(child ? 'temporal' : 'permanente')
   const [filter, setFilter] = useState<keyof typeof FILTERS>('all')
   const selectedInfo = selected ? getToothInfo(selected) : undefined
 
   const handleSelectTooth = (n: number | undefined) => {
     setSelected(n)
+    setSurfaces(data.toothStates.find((f) => f.tooth === n)?.surfaces ?? [])
     if (n !== undefined) {
       setDentition(dentitionForTooth(n))
     }
@@ -41,9 +44,22 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
   const marks = useMemo(() => {
     const m: Record<number, ToothMark> = {}
     for (const f of data.findings) m[f.tooth] = { condition: f.condition, today: false }
+    for (const f of data.toothStates) m[f.tooth] = { condition: f.condition, today: true }
     return m
-  }, [data.findings])
-  const toothHistory = selected ? data.findings.filter((f) => f.tooth === selected) : []
+  }, [data.findings, data.toothStates])
+  const toothHistory = selected
+    ? [...data.findings.filter((f) => f.tooth === selected), ...data.toothStates.filter((f) => f.tooth === selected)]
+    : []
+  const saveTooth = async (tooth: number, condition: ToothCondition) => {
+    const result = await savePatientToothState({ patientId, tooth, condition, surfaces })
+    if (!result.ok) return result.error.message
+    router.refresh()
+  }
+  const clearTooth = async (tooth: number) => {
+    const result = await clearPatientToothState({ patientId, tooth })
+    if (!result.ok) return result.error.message
+    router.refresh()
+  }
   const pendingTotal = data.pending.reduce((s, i) => s + i.priceCents, 0)
 
   const timeline = useMemo<Entry[]>(
@@ -118,7 +134,14 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
       <PatientFiles patientId={patientId} files={data.files} />
 
       <section className="glass p-5">
+        <h2 className="title-gold mb-1 text-lg">Odontograma</h2>
+        <p className="mb-3 text-sm text-muted">Toca un diente para registrar o actualizar su estado.</p>
         <DentalWorkspace
+          initialView="3d"
+          onMark={saveTooth}
+          onClear={clearTooth}
+          surfaces={surfaces}
+          onSurfacesChange={setSurfaces}
           marks={marks}
           selected={selected}
           onSelect={handleSelectTooth}

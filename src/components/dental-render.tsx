@@ -17,18 +17,18 @@ export type DentalRenderProps = {
 
 const VIEWS = {
   mouth: {
-    label: 'Dentadura',
-    description: 'Vista exterior de los dientes y la encía.',
+    label: 'Dentadura completa',
+    description: '',
     layers: { roots: false, bone: false, gums: true, vessels: false, nerves: false },
   },
   roots: {
-    label: 'Ver raíces',
-    description: 'La encía se vuelve transparente para ver cómo se sostiene cada diente.',
+    label: 'Raíces',
+    description: '',
     layers: { roots: true, bone: false, gums: true, vessels: false, nerves: false },
   },
   nerves: {
     label: 'Nervios y vasos',
-    description: 'Amarillo: nervios. Rojo: arterias. Azul: venas.',
+    description: '',
     layers: { roots: true, bone: false, gums: false, vessels: true, nerves: true },
   },
 } satisfies Record<string, { label: string; description: string; layers: DentalLayers }>
@@ -153,14 +153,11 @@ export function DentalRender({ marks, selected, onSelect, dentition = 'permanent
     <section className="dental-render" aria-labelledby={titleId}>
       <div className="dental-render__topline">
         <div>
-          <p className="eyebrow">Para explicar al paciente</p>
-          <h3 id={titleId} className="title-gold mt-1 text-lg">
-            Explora la boca
-          </h3>
+          <h3 id={titleId} className="title-gold text-lg">Modelo 3D</h3>
         </div>
-        <button type="button" onClick={reset} className="dental-render__toggle" title="Restablecer vista y quitar selección">
-          <RotateCcw size={16} aria-hidden /> Empezar de nuevo
-        </button>
+        {(view !== 'mouth' || selected) && <button type="button" onClick={reset} className="dental-render__toggle" title="Mostrar todos los dientes">
+          <RotateCcw size={16} aria-hidden /> Mostrar dentadura completa
+        </button>}
       </div>
 
       <div className="dental-view-choices" role="group" aria-label="Qué quieres mostrar">
@@ -170,9 +167,7 @@ export function DentalRender({ marks, selected, onSelect, dentition = 'permanent
           </button>
         ))}
       </div>
-      <p className="px-4 pb-3 text-xs leading-relaxed text-muted" aria-live="polite">
-        {VIEWS[view].description}
-      </p>
+      {VIEWS[view].description && <p className="px-4 pb-3 text-xs text-muted">{VIEWS[view].description}</p>}
 
       {dentition === 'temporal' || (selectedInfo && !selectedInfo.in3DModel) ? (
         <div role="status" className="border-t border-gold/20 bg-gold/8 px-4 py-3 text-sm text-bone">
@@ -277,8 +272,7 @@ export function DentalRender({ marks, selected, onSelect, dentition = 'permanent
             </p>
             {selectedMark && (
               <p className="mt-2 text-xs text-muted">
-                Registro: {CONDITION_LABEL[selectedMark.condition]} · {selectedMark.today ? 'hoy' : 'previo'}. El color señala la pieza; no
-                reproduce la lesión ni el tratamiento.
+                {CONDITION_LABEL[selectedMark.condition]} · {selectedMark.today ? 'hoy' : 'previo'}.
               </p>
             )}
             <details className="mt-3 text-xs text-muted">
@@ -301,14 +295,14 @@ export function DentalRender({ marks, selected, onSelect, dentition = 'permanent
           </>
         ) : (
           <p className="text-sm leading-relaxed text-muted">
-            Elige un diente en la boca o en el mapa dental. Aquí verás su nombre y lo que tiene registrado.
+            Toca un diente para seleccionarlo.
           </p>
         )}
       </div>
 
       <details className="border-t border-white/8 px-4 text-xs text-muted">
         <summary className="flex min-h-11 cursor-pointer items-center justify-between py-3">
-          Más opciones de anatomía <ChevronDown size={14} aria-hidden />
+          Anatomía <ChevronDown size={14} aria-hidden />
         </summary>
         <div className="flex flex-wrap gap-2 pb-3" role="group" aria-label="Capas anatómicas">
           {(
@@ -333,7 +327,7 @@ export function DentalRender({ marks, selected, onSelect, dentition = 'permanent
         </div>
       </details>
       <details className="border-t border-white/8 px-4 text-xs text-muted">
-        <summary className="min-h-11 cursor-pointer py-3">Sobre este modelo educativo</summary>
+        <summary className="min-h-11 cursor-pointer py-3">Acerca del modelo</summary>
         <p className="pb-3 leading-relaxed">
           Anatomía de referencia, no es el escaneo de este paciente. Incluye 28 dientes adultos; las muelas del juicio y los dientes
           infantiles se manejan en el mapa. Los vasos representan el lado derecho del atlas. Nervios de ambos lados. BodyParts3D /
