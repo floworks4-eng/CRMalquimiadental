@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef } from 'react'
+import { useId } from 'react'
 import { Check, Eraser, LoaderCircle, X } from 'lucide-react'
 import { CONDITION_LABEL, SURFACES, SURFACE_LABEL, type ToothCondition } from '@/lib/domain/clinical'
 import { getToothInfo } from '@/lib/teeth'
@@ -9,6 +9,8 @@ import type { ToothMark } from './odontogram'
 
 const QUICK_CONDITIONS: ToothCondition[] = [
   'caries',
+  'obturacion',
+  'sano',
   'fractura',
   'ausente',
   'corona',
@@ -48,43 +50,18 @@ export function DentalFindingEditor({
   surfaces?: string[]
   onSurfacesChange?: (surfaces: string[]) => void
 }) {
-  const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const descriptionId = useId()
   const info = tooth ? getToothInfo(tooth) : undefined
 
-  useEffect(() => {
-    const dialog = ref.current
-    if (!dialog) return
-    if (!tooth) {
-      if (dialog.open) dialog.close()
-      return
-    }
-    const returnFocus = document.activeElement as HTMLElement | null
-    const previousOverflow = document.body.style.overflow
-    dialog.showModal()
-    document.body.style.overflow = 'hidden'
-    return () => {
-      if (dialog.open) dialog.close()
-      document.body.style.overflow = previousOverflow
-      returnFocus?.focus()
-    }
-  }, [tooth])
-
   return (
-    <dialog
-      ref={ref}
-      className="dental-finding-dialog"
-      aria-labelledby={titleId}
-      aria-describedby={descriptionId}
-      onCancel={(event) => {
-        if (saving) event.preventDefault()
-        else onClose()
-      }}
-      onClick={(event) => {
-        if (event.target === ref.current && !saving) onClose()
-      }}
+    <section
+      className="rounded-2xl border border-gold/25 bg-black/15"
+      aria-label="Estado del diente"
+      role="region"
+      aria-describedby={info ? descriptionId : undefined}
     >
+      {!info && <div className="p-5"><h3 className="font-medium text-gold-soft">Elige un diente</h3><p className="mt-2 text-sm text-muted">Toca una pieza en la boca 3D o en el mapa. Aquí podrás registrar su estado sin salir de esta pantalla.</p></div>}
       {info && (
         <>
           <div className="dental-finding-dialog__header">
@@ -106,7 +83,6 @@ export function DentalFindingEditor({
             </div>
             <button
               type="button"
-              autoFocus
               disabled={saving}
               onClick={onClose}
               className="dental-render__zoom shrink-0"
@@ -117,7 +93,7 @@ export function DentalFindingEditor({
           </div>
           <div className="px-4 pb-4 sm:px-5 sm:pb-5">
             <p id={descriptionId} className="mb-3 text-sm text-bone">
-              ¿Qué tiene este diente? Toca una opción para guardarla.
+              Elige el estado. Se guarda al tocarlo; después puedes seleccionar otro diente.
             </p>
             <div role="group" aria-label={`Marcar hallazgo en pieza ${tooth}`} className="dental-condition-grid">
               {QUICK_CONDITIONS.map((condition) => (
@@ -131,7 +107,7 @@ export function DentalFindingEditor({
                   onClick={() => onMark(condition)}
                 >
                   <DentalTooth tooth={tooth} condition={condition} className="h-14 w-11" />
-                  <span>{CONDITION_LABEL[condition]}</span>
+                  <span>{condition === 'fractura' ? 'Roto / fracturado' : CONDITION_LABEL[condition]}</span>
                   {mark?.today && mark.condition === condition && (
                     <Check className="absolute right-2 top-2 text-gold" size={14} aria-hidden />
                   )}
@@ -182,6 +158,6 @@ export function DentalFindingEditor({
           </div>
         </>
       )}
-    </dialog>
+    </section>
   )
 }

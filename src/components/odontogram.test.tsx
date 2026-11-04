@@ -83,7 +83,7 @@ describe('Odontogram visual', () => {
     expect(details.open).toBe(false)
     const legend = screen.getByRole('list', { name: 'Leyenda' })
     expect(legend.closest('details')).toBeNull()
-    expect(legend.children).toHaveLength(10)
+    expect(legend.children).toHaveLength(CONDITIONS.length + 1)
     for (const condition of CONDITIONS) {
       expect(within(legend).getByText(CONDITION_LABEL[condition]).querySelector('svg')?.getAttribute('data-condition')).toBe(condition)
     }
@@ -215,12 +215,12 @@ describe('Odontogram visual', () => {
   })
 
   it('expone todos los hallazgos y el estado hoy/previo sin depender del color', () => {
-    const numbers = [11, 12, 13, 14, 15, 16, 17, 18, 21]
+    const numbers = [11, 12, 13, 14, 15, 16, 17, 18, 21, 22, 23]
     const marks = Object.fromEntries(CONDITIONS.map((condition, i) => [numbers[i], { condition, today: i % 2 === 0 }]))
     render(<Odontogram marks={marks} selected={13} onSelect={vi.fn()} />)
 
     CONDITIONS.forEach((condition, i) => {
-      const button = screen.getByRole('button', { name: new RegExp(`pieza ${numbers[i]}: ${CONDITION_LABEL[condition]}`) })
+      const button = screen.getByRole('button', { name: new RegExp(`pieza ${numbers[i]}: ${CONDITION_LABEL[condition].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
       expect(button.getAttribute('aria-label')?.includes('(hoy)')).toBe(i % 2 === 0)
       expect(button.querySelector('svg')?.getAttribute('data-condition')).toBe(condition)
       expect(button.getAttribute('aria-pressed')).toBe(String(numbers[i] === 13))
@@ -257,7 +257,7 @@ describe('DentalTooth reutilizable en mapa y mosaicos', () => {
     expect(container.querySelector('svg')?.getAttribute('data-upper')).toBe('true')
   })
 
-  it('ofrece nueve símbolos vectoriales distintos y admite props opcionales', () => {
+  it('ofrece símbolos vectoriales distintos y admite props opcionales', () => {
     const { container, rerender } = render(<DentalTooth className="preview-tooth" />)
     expect(container.querySelector('svg')?.classList.contains('preview-tooth')).toBe(true)
     expect(container.querySelector('svg')?.getAttribute('data-kind')).toBe('molar')

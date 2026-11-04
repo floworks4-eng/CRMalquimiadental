@@ -115,6 +115,8 @@ export function DentalTooth({ tooth, condition, selected = false, upper, classNa
         {condition === 'sellante' && (
           <path d="M24 17 Q28 24 32 18 Q36 24 40 17 L38 26 Q32 30 26 26 Z" fill="#39ab7c" stroke="#126b4b" strokeWidth="1.5" />
         )}
+        {condition === 'obturacion' && <path d="M25 15 H39 V27 H25 Z M28 19 H36 M28 23 H36" fill="#72c9dc" stroke="#246c8b" strokeWidth="1.5" />}
+        {condition === 'sano' && <path d="M22 21 L29 28 L42 14" fill="none" stroke="#258457" strokeWidth="3" />}
         {condition === 'protesis' && (
           <g fill="none" stroke="#7851b0" strokeWidth="2.5">
             <path d="M20 28 Q32 35 44 28 M20 28 L17 23 M44 28 L47 23" />

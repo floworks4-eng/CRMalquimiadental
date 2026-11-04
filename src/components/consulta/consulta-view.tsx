@@ -177,6 +177,7 @@ function InProgress({ data, pending, run }: { data: ConsultaData; pending: boole
       <div className="space-y-5">
         <section className="glass p-5">
           <DentalWorkspace
+            initialView="3d"
             marks={marks}
             selected={selected}
             onSelect={handleSelectTooth}

@@ -7,6 +7,8 @@ import { DentalTooth } from './dental-tooth'
 export type ToothMark = { condition: ToothCondition; today: boolean }
 
 export const CONDITION_ABBR: Record<ToothCondition, string> = {
+  sano: '✓',
+  obturacion: 'R',
   caries: 'C',
   corona: 'Co',
   endodoncia: 'E',

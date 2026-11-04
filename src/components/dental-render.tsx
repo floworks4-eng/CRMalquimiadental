@@ -35,6 +35,8 @@ const VIEWS = {
 type View = keyof typeof VIEWS
 
 export const PATIENT_EXPLANATIONS: Record<ToothCondition, string> = {
+  sano: 'El odontólogo registró esta pieza como sana en esta atención.',
+  obturacion: 'Esta pieza tiene una restauración u obturación registrada. El odontólogo puede explicar su estado.',
   caries: 'Se registró una caries: una zona del diente dañada que el odontólogo debe valorar y tratar.',
   fractura: 'Se registró una fractura: una parte del diente está rota o agrietada.',
   endodoncia:

@@ -1,12 +1,12 @@
 // Etiquetas de los tipos clinicos y de cobro. Deben coincidir con los enums de supabase/migrations/0001.
-export type ToothCondition = 'caries' | 'corona' | 'endodoncia' | 'ausente' | 'fractura' | 'sellante' | 'implante' | 'protesis' | 'otro'
+export type ToothCondition = 'sano' | 'obturacion' | 'caries' | 'corona' | 'endodoncia' | 'ausente' | 'fractura' | 'sellante' | 'implante' | 'protesis' | 'otro'
 export type PlanStatus = 'planned' | 'accepted' | 'in_progress' | 'done' | 'cancelled'
 export type PaymentMethod = 'cash' | 'qr' | 'transfer' | 'card'
 export type InvoiceStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'voided'
 export type StockReason = 'purchase' | 'treatment' | 'adjustment' | 'waste' | 'return'
 
 export const CONDITION_LABEL: Record<ToothCondition, string> = {
-  caries: 'Caries', corona: 'Corona', endodoncia: 'Endodoncia', ausente: 'Ausente', fractura: 'Fractura',
+  sano: 'Sano', obturacion: 'Restaurado / curado', caries: 'Caries', corona: 'Corona', endodoncia: 'Endodoncia', ausente: 'Ausente', fractura: 'Fractura',
   sellante: 'Sellante', implante: 'Implante', protesis: 'Prótesis', otro: 'Otro',
 }
 export const CONDITIONS = Object.keys(CONDITION_LABEL) as ToothCondition[]

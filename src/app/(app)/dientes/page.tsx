@@ -10,7 +10,7 @@ export default async function DientesPage() {
       <div>
         <p className="eyebrow">Herramienta para odontólogos</p>
         <h1 className="title-gold mt-1 text-3xl">Modelo dental 3D</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted">Selecciona una pieza, gira la boca y muestra las raíces, nervios y vasos para explicar un tratamiento. Este modelo es educativo; las marcas de un paciente se registran en su consulta.</p>
+        <p className="mt-2 max-w-2xl text-sm text-muted">Elige la atención del paciente, toca un diente y registra su estado aquí mismo. También puedes mostrar raíces, nervios y vasos para explicar el tratamiento.</p>
       </div>
       <section className="glass p-4 sm:p-6"><DentalAtlas /></section>
     </div>

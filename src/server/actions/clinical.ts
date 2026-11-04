@@ -42,14 +42,12 @@ export async function saveEncounterNotes(input: unknown): Promise<ActionResult> 
 export async function addFinding(input: unknown): Promise<ActionResult> {
   const p = findingSchema.safeParse(input)
   if (!p.success) return fail('VALIDATION', 'Revisa el hallazgo.', fieldErrors(p.error.issues))
-  const s = await requireCapability('encounters.write')
+  await requireCapability('encounters.write')
   const d = p.data
   const supabase = await createClient()
-  // Un hallazgo por pieza y atención: si ya había uno hoy, se reemplaza.
-  await supabase.from('tooth_findings').delete().eq('encounter_id', d.encounterId).eq('tooth_fdi', d.tooth)
-  const { error } = await supabase.from('tooth_findings').insert({
-    patient_id: d.patientId, encounter_id: d.encounterId, tooth_fdi: d.tooth, condition: d.condition, surfaces: d.surfaces,
-    notes: d.notes ?? null, recorded_by: s.userId, clinic_id: s.member.clinicId,
+  const { error } = await supabase.rpc('save_tooth_finding', {
+    p_encounter: d.encounterId, p_patient: d.patientId, p_tooth: d.tooth,
+    p_condition: d.condition, p_surfaces: d.surfaces, p_notes: d.notes ?? null,
   })
   if (error) return fail('IMMUTABLE', 'No se pudo guardar: la atención ya no está en curso.')
   refresh(undefined, d.patientId)
@@ -60,8 +58,8 @@ export async function removeFinding(input: unknown): Promise<ActionResult> {
   const p = z.object({ encounterId: z.uuid(), tooth: z.number().int() }).safeParse(input)
   if (!p.success) return fail('VALIDATION', 'Datos no válidos.')
   await requireCapability('encounters.write')
-  const { error } = await (await createClient()).from('tooth_findings').delete().eq('encounter_id', p.data.encounterId).eq('tooth_fdi', p.data.tooth)
-  if (error) return fail('IMMUTABLE', 'No se pudo quitar el hallazgo.')
+  const { data, error } = await (await createClient()).from('tooth_findings').delete().eq('encounter_id', p.data.encounterId).eq('tooth_fdi', p.data.tooth).select('id')
+  if (error || !data?.length) return fail('IMMUTABLE', 'No se pudo quitar el hallazgo.')
   return ok(undefined)
 }
 

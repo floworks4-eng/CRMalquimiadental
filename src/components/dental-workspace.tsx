@@ -57,10 +57,11 @@ export function DentalWorkspace(props: Props) {
   }, [presenting])
 
   function selectTooth(tooth: number | undefined) {
+    if (saving) return
     props.onSelect(tooth)
     setError(undefined)
     setNotice(undefined)
-    if (props.onMark && tooth && !props.disabled) setEditingTooth(tooth)
+    setEditingTooth(props.onMark && tooth && !props.disabled ? tooth : undefined)
   }
 
   function save(condition?: ToothCondition) {
@@ -76,8 +77,7 @@ export function DentalWorkspace(props: Props) {
           setError(message)
           return
         }
-        setEditingTooth(undefined)
-        setNotice(condition ? `${CONDITION_LABEL[condition]} guardada en pieza ${tooth}` : `Marca de hoy quitada de la pieza ${tooth}`)
+        setNotice(condition ? `Estado guardado: ${CONDITION_LABEL[condition]} · pieza ${tooth}` : `Marca de hoy quitada de la pieza ${tooth}`)
       } catch {
         setError('No se pudo guardar. Revisa tu conexión y vuelve a intentarlo.')
       }
@@ -113,6 +113,7 @@ export function DentalWorkspace(props: Props) {
           </button>
         </div>
       )}
+      <div className="dental-edit-container"><div className={props.onMark ? "dental-edit-layout" : ""}>
       <DentalExplorer {...props} marks={optimisticMarks} onSelect={selectTooth} />
       {props.onMark && (
         <DentalFindingEditor
@@ -129,6 +130,7 @@ export function DentalWorkspace(props: Props) {
           onSurfacesChange={props.onSurfacesChange}
         />
       )}
+      </div></div>
       <dialog
         ref={dialogRef}
         aria-labelledby={titleId}

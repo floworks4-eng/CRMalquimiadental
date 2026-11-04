@@ -44,6 +44,7 @@ export default function DentalPreviewPage() {
 
         <section className="glass p-4 sm:p-6">
           <DentalWorkspace
+            initialView="3d"
             marks={marks}
             selected={selected}
             onSelect={handleSelectTooth}

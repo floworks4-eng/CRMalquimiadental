@@ -333,6 +333,11 @@ summary {
   }
   .dental-presentation::backdrop { background: #101114cc; backdrop-filter: blur(8px); }
   .dental-presentation .dental-canvas { height: clamp(360px, 50dvh, 560px); }
+  .dental-edit-container { container-type: inline-size; }
+  .dental-edit-layout { display: grid; align-items: start; gap: 16px; }
+  @container (min-width: 900px) {
+    .dental-edit-layout { grid-template-columns: minmax(0, 1fr) 320px; }
+  }
   .dental-finding-dialog {
     margin: auto;
     width: calc(100% - 20px);

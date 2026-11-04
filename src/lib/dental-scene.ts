@@ -16,6 +16,8 @@ export type DentalSceneState = {
 export type DentalAngle = 'front' | 'right' | 'left'
 
 const CROWN_COLORS: Partial<Record<ToothCondition, string>> = {
+  sano: '#9cdab7',
+  obturacion: '#72c9dc',
   caries: '#df9d83',
   fractura: '#df9d83',
   corona: '#d7b56d',

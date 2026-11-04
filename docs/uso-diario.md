@@ -2,7 +2,7 @@
 
 ## Modelo dental
 
-El administrador y los odontólogos abren **Modelo dental 3D** desde el menú. Pueden elegir una pieza en el mapa o el modelo y activar las vistas **Dentadura**, **Ver raíces** y **Nervios y vasos**. Es una referencia educativa independiente: no guarda hallazgos de un paciente. Para registrar un hallazgo, se abre su consulta.
+El administrador y los odontólogos abren **Modelo dental 3D** desde el menú. Pueden elegir una pieza en el mapa o el modelo y activar las vistas **Dentadura**, **Ver raíces** y **Nervios y vasos**. Para registrar estados, elige la fecha y la atención del paciente e inicia la atención desde esta misma pantalla. Toca una pieza y elige Caries, Restaurado / curado, Sano, Roto / fracturado u otro estado. Cada opción se guarda inmediatamente y mantiene el modelo visible. Puedes continuar con otra pieza. Las caras son opcionales: selecciónalas antes de tocar el estado. «Quitar marca de hoy» elimina solo el registro de la atención actual y vuelve a mostrar el anterior; «Sano» registra una nueva valoración sana. Las atenciones cerradas son de solo lectura. Sin paciente seleccionado funciona como explorador educativo. La misma interacción está disponible dentro de Consulta.
 
 ## Nueva cita y paciente nuevo
 
