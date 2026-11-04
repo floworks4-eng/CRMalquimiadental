@@ -1,21 +1,20 @@
 'use client'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Plus, Search, FileUp, ArrowUpRight, Users } from 'lucide-react'
 import { Modal, Avatar, PageHeader } from '../ui'
-import { PatientForm } from './patient-form'
 import { formatDateTime } from '@/lib/domain/time'
 import { formatPhone } from '@/lib/domain/phone'
 import { SOURCE_LABEL, type AppointmentSource } from '@/lib/domain/status'
-import type { BookingOptions, PatientDirectoryItem, PatientStatus } from '@/server/queries/types'
+import type { BookingOptions, PatientDirectoryItem } from '@/server/queries/types'
 
-export const PATIENT_STATUS_LABEL: Record<PatientStatus, string> = {
-  new: 'Nuevo',
-  active: 'Activo',
-  in_treatment: 'En tratamiento',
-  inactive: 'Inactivo',
-}
+const PatientForm = dynamic(() => import('./patient-form').then((mod) => mod.PatientForm), {
+  loading: () => <p role="status" aria-live="polite" aria-busy="true" className="text-sm text-muted">Cargando formulario del paciente…</p>,
+})
+
+import { PATIENT_STATUS_LABEL } from '@/lib/domain/patients'
 
 type Props = {
   items: PatientDirectoryItem[]
@@ -177,8 +176,8 @@ export function PatientsView({ items, total, page, pageSize, options, canAssignD
         </nav>
       )}
 
-      <Modal open={creating} onClose={() => setCreating(false)} title="Nuevo paciente">
-        {creating && (
+      {creating && (
+        <Modal open={creating} onClose={() => setCreating(false)} title="Nuevo paciente">
           <PatientForm
             mode="create"
             options={options}
@@ -188,8 +187,8 @@ export function PatientsView({ items, total, page, pageSize, options, canAssignD
               if (id) router.push(`/pacientes/${id}`)
             }}
           />
-        )}
-      </Modal>
+        </Modal>
+      )}
     </>
   )
 }

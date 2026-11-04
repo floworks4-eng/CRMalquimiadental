@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "assets:dental": "node scripts/prepare-dental-assets.mjs",
+    "prebuild": "npm run assets:dental",
+    "performance:report": "node scripts/performance-report.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

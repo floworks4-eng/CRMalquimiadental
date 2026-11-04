@@ -1,4 +1,5 @@
 import 'server-only'
+import { cache } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '../supabase/server'
 import { requireCapability } from '../auth/guards'
@@ -89,23 +90,36 @@ export type ConsultaData = {
   canDiscount: boolean
 }
 
-export async function getConsulta(appointmentId: string): Promise<ConsultaData | null> {
+export const getConsulta = cache(async (appointmentId: string): Promise<ConsultaData | null> => {
   if (!UUID.test(appointmentId)) return null
   const s = await requireCapability('encounters.read')
   const supabase = await createClient()
-  const [appointment] = await appointmentCards(supabase, (q) => q.eq('id', appointmentId))
-  if (!appointment?.patient) return null
-  const patientId = appointment.patient.id
-
-  const [{ data: p }, anamnesis, { data: e }, findings, plan, treatments] = await Promise.all([
-    supabase.from('patients').select('id, full_name, birth_date, phone_e164').eq('id', patientId).maybeSingle(),
-    getCurrentAnamnesis(patientId),
+  const readPatient = async () => {
+    const [appointment] = await appointmentCards(supabase, (q) => q.eq('id', appointmentId))
+    if (!appointment?.patient) return null
+    const patientId = appointment.patient.id
+    const [{ data: p }, anamnesis, findings, plan] = await Promise.all([
+      supabase.from('patients').select('id, full_name, birth_date, phone_e164').eq('id', patientId).maybeSingle(),
+      getCurrentAnamnesis(patientId),
+      findingsOf(supabase, patientId),
+      planOf(supabase, patientId),
+    ])
+    return p ? { appointment, p, anamnesis, findings, plan } : null
+  }
+  // El encuentro y el catálogo no necesitan el patientId resuelto por la cita.
+  const [patientResult, encounterResult, treatmentResult] = await Promise.allSettled([
+    readPatient(),
     supabase.from('encounters').select('id, status, chief_complaint, notes, started_at, finished_at').eq('appointment_id', appointmentId).maybeSingle(),
-    findingsOf(supabase, patientId),
-    planOf(supabase, patientId),
     treatmentOptions(supabase),
   ])
-  if (!p) return null
+  if (patientResult.status === 'rejected') throw patientResult.reason
+  const patientData = patientResult.value
+  if (!patientData) return null
+  if (encounterResult.status === 'rejected') throw encounterResult.reason
+  if (treatmentResult.status === 'rejected') throw treatmentResult.reason
+  const { data: e } = encounterResult.value
+  const treatments = treatmentResult.value
+  const { appointment, p, anamnesis, findings, plan } = patientData
   const enc = e as { id: string; status: EncounterView['status']; chief_complaint: string | null; notes: string | null; started_at: string; finished_at: string | null } | null
   const encounter: EncounterView | null = enc
     ? { id: enc.id, status: enc.status, chiefComplaint: enc.chief_complaint, notes: enc.notes, startedAt: enc.started_at, finishedAt: enc.finished_at }
@@ -115,11 +129,13 @@ export async function getConsulta(appointmentId: string): Promise<ConsultaData |
   const today = plan.filter((i) => i.status === 'in_progress')
   let supplies: SupplyNeed[] = []
   if (encounter?.status === 'in_progress' && today.length) {
+    const treatmentCounts = new Map<string, number>()
+    for (const item of today) treatmentCounts.set(item.treatmentId, (treatmentCounts.get(item.treatmentId) ?? 0) + 1)
     const { data: recipe } = await supabase.from('treatment_supplies').select('treatment_id, qty, supply_item_id, item:supply_items(name, unit)')
-      .in('treatment_id', [...new Set(today.map((i) => i.treatmentId))])
+      .in('treatment_id', [...treatmentCounts.keys()])
     const need = new Map<string, SupplyNeed>()
     for (const r of (recipe ?? []) as unknown as { treatment_id: string; qty: number; supply_item_id: string; item: { name: string; unit: string } }[]) {
-      const times = today.filter((i) => i.treatmentId === r.treatment_id).length
+      const times = treatmentCounts.get(r.treatment_id) ?? 0
       const cur = need.get(r.supply_item_id) ?? { item: r.item.name, unit: r.item.unit, need: 0, available: 0 }
       cur.need += Number(r.qty) * times
       need.set(r.supply_item_id, cur)
@@ -155,7 +171,7 @@ export async function getConsulta(appointmentId: string): Promise<ConsultaData |
     canFinish: role === 'clinic_admin' || (role === 'dentist' && appointment.dentist.id === s.userId),
     canDiscount: role === 'clinic_admin',
   }
-}
+})
 
 export type EncounterHistoryItem = {
   id: string; appointmentId: string; status: EncounterView['status']; chiefComplaint: string | null; notes: string | null; startedAt: string; dentist: string
@@ -171,11 +187,32 @@ export type PatientClinical = {
 }
 
 /** Historia clinica completa de la ficha: anamnesis y sus versiones, odontograma, plan, atenciones, notas e historial importado. */
-export async function getPatientClinical(patientId: string): Promise<PatientClinical | null> {
+export const getPatientClinical = cache(async (patientId: string): Promise<PatientClinical | null> => {
   if (!UUID.test(patientId)) return null
   await requireCapability('patients.read_clinical')
   const supabase = await createClient()
-  const [anamnesis, findings, plan, { data: enc }, { data: notes }, { data: versions }, { data: files }] = await Promise.all([
+  const readFiles = async (): Promise<PatientFile[]> => {
+    const { data: files } = await supabase.from('patient_files').select('id, kind, mime, size_bytes, storage_path, created_at').eq('patient_id', patientId).order('created_at', { ascending: false })
+    const rows = (files ?? []) as { id: string; kind: 'photo' | 'document'; mime: string; size_bytes: number; storage_path: string; created_at: string }[]
+    if (!rows.length) return []
+    // Firmar solo rutas devueltas por RLS, sin esperar el resto de la historia.
+    const batches: typeof rows[] = []
+    for (let offset = 0; offset < rows.length; offset += 100) batches.push(rows.slice(offset, offset + 100))
+    const signedBatches = await Promise.all(batches.map(async (batch) => {
+      const { data, error } = await supabase.storage.from('clinical').createSignedUrls(batch.map((file) => file.storage_path), 3600)
+      const urls = new Map<string, string | null>()
+      // Storage puede ordenar por path; nunca asociar la respuesta por índice.
+      if (!error) for (const signed of data ?? []) {
+        if (signed.path !== null) urls.set(signed.path, signed.error !== null ? null : signed.signedUrl)
+      }
+      return batch.map((file) => ({
+        id: file.id, kind: file.kind, mime: file.mime, sizeBytes: Number(file.size_bytes), createdAt: file.created_at,
+        url: urls.get(file.storage_path) ?? null,
+      }))
+    }))
+    return signedBatches.flat()
+  }
+  const [anamnesis, findings, plan, { data: enc }, { data: notes }, { data: versions }, filesWithUrls] = await Promise.all([
     getCurrentAnamnesis(patientId),
     findingsOf(supabase, patientId),
     planOf(supabase, patientId),
@@ -184,8 +221,21 @@ export async function getPatientClinical(patientId: string): Promise<PatientClin
       .eq('patient_id', patientId).order('started_at', { ascending: false }).limit(200),
     supabase.from('clinical_notes').select('id, noted_on, body, source, created_at, author:profiles(full_name)').eq('patient_id', patientId).order('noted_on', { ascending: false }).order('created_at', { ascending: false }).limit(500),
     supabase.from('anamnesis_versions').select('id, version, submitted_at, source, allergies, allergy_other, conditions, medications, author:profiles!anamnesis_versions_submitted_by_fkey(full_name)').eq('patient_id', patientId).order('version', { ascending: false }),
-    supabase.from('patient_files').select('id, kind, mime, size_bytes, storage_path, created_at').eq('patient_id', patientId).order('created_at', { ascending: false }),
+    readFiles(),
   ])
+  const itemsByEncounter = new Map<string, string[]>()
+  for (const item of plan) {
+    if (item.completedEncounterId === null) continue
+    const items = itemsByEncounter.get(item.completedEncounterId) ?? []
+    items.push(item.treatmentName + (item.tooth ? ` · ${item.tooth}` : ''))
+    itemsByEncounter.set(item.completedEncounterId, items)
+  }
+  const findingsByEncounter = new Map<string, string[]>()
+  for (const finding of findings) {
+    const items = findingsByEncounter.get(finding.encounterId) ?? []
+    items.push(`${finding.tooth} ${finding.condition}${finding.surfaces.length ? ` (${finding.surfaces.join('')})` : ''}`)
+    findingsByEncounter.set(finding.encounterId, items)
+  }
   type Inv = { number: string; total_cents: number; paid_cents: number }
   const history = ((enc ?? []) as unknown as {
     id: string; appointment_id: string; status: EncounterView['status']; chief_complaint: string | null; notes: string | null; started_at: string
@@ -196,18 +246,13 @@ export async function getPatientClinical(patientId: string): Promise<PatientClin
     return {
       id: r.id, appointmentId: r.appointment_id, status: r.status, chiefComplaint: r.chief_complaint, notes: r.notes, startedAt: r.started_at,
       dentist: r.dentist?.full_name ?? '—',
-      items: plan.filter((i) => i.completedEncounterId === r.id).map((i) => i.treatmentName + (i.tooth ? ` · ${i.tooth}` : '')),
-      findings: findings.filter((f) => f.encounterId === r.id).map((f) => `${f.tooth} ${f.condition}${f.surfaces.length ? ` (${f.surfaces.join('')})` : ''}`),
+      items: itemsByEncounter.get(r.id) ?? [],
+      findings: findingsByEncounter.get(r.id) ?? [],
       invoice: inv ? { number: inv.number, totalCents: inv.total_cents, paidCents: inv.paid_cents } : null,
       addenda: (r.addenda ?? []).map((x) => ({ reason: x.reason, notes: x.notes, createdAt: x.created_at, author: x.author?.full_name ?? '—' })),
     }
   })
   const clean = (l: string[] | null, none: string) => (l ?? []).filter((x) => x !== none)
-  const fileRows = (files ?? []) as { id: string; kind: 'photo' | 'document'; mime: string; size_bytes: number; storage_path: string; created_at: string }[]
-  const filesWithUrls = await Promise.all(fileRows.map(async (file) => {
-    const { data } = await supabase.storage.from('clinical').createSignedUrl(file.storage_path, 3600)
-    return { id: file.id, kind: file.kind, mime: file.mime, sizeBytes: Number(file.size_bytes), createdAt: file.created_at, url: data?.signedUrl ?? null }
-  }))
   return {
     anamnesis, findings, pending: plan.filter((i) => i.status !== 'done'), history,
     notes: ((notes ?? []) as unknown as { id: string; noted_on: string; body: string; source: 'staff' | 'import'; created_at: string; author: { full_name: string } | null }[])
@@ -225,7 +270,7 @@ export async function getPatientClinical(patientId: string): Promise<PatientClin
     }),
     files: filesWithUrls,
   }
-}
+})
 
 /** Facturas del paciente (recepcion tambien las ve: es dinero, no salud). */
 export async function getPatientInvoices(patientId: string): Promise<InvoiceSummary[]> {

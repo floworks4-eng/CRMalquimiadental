@@ -1,8 +1,11 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
+import { Bell } from 'lucide-react'
 import { AppShell, type NavItem } from '@/components/app-shell'
 import { requireMember } from '@/server/auth/guards'
 import { can, ROLE_LABEL } from '@/server/auth/permissions'
 import { listNotifications } from '@/server/actions/agenda'
+import { NotificationBell } from '@/components/notification-bell'
 
 export const metadata: Metadata = { title: 'Alquimia Dental', robots: { index: false, follow: false } }
 export const dynamic = 'force-dynamic'
@@ -25,9 +28,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       user={{ name: s.fullName ?? s.email ?? 'Usuario', roleLabel: ROLE_LABEL[r] }}
       clinic={s.member.clinicName}
       items={items}
-      notifications={await listNotifications()}
+      notifications={
+        <Suspense
+          fallback={
+            <span role="status" aria-label="Cargando notificaciones" className="btn btn-ghost p-2">
+              <Bell size={20} strokeWidth={1.5} aria-hidden />
+            </span>
+          }
+        >
+          <Notifications />
+        </Suspense>
+      }
     >
       {children}
     </AppShell>
   )
+}
+
+async function Notifications() {
+  return <NotificationBell initial={await listNotifications()} />
 }

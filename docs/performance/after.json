@@ -1,0 +1,110 @@
+{
+  "measuredAt": "2026-11-04T00:28:05.910Z",
+  "method": "Production route entry JS from client-reference manifests plus common runtime; gzip measured per chunk. Excludes async chunks until requested.",
+  "routes": {
+    "/": {
+      "files": 10,
+      "bytes": 487080,
+      "gzipBytes": 147566
+    },
+    "/_global-error": {
+      "files": 10,
+      "bytes": 487080,
+      "gzipBytes": 147566
+    },
+    "/_not-found": {
+      "files": 10,
+      "bytes": 487080,
+      "gzipBytes": 147566
+    },
+    "/agenda": {
+      "files": 12,
+      "bytes": 528655,
+      "gzipBytes": 161288
+    },
+    "/caja": {
+      "files": 11,
+      "bytes": 510354,
+      "gzipBytes": 155530
+    },
+    "/configuracion": {
+      "files": 12,
+      "bytes": 499177,
+      "gzipBytes": 152399
+    },
+    "/configuracion-inicial": {
+      "files": 13,
+      "bytes": 623288,
+      "gzipBytes": 189870
+    },
+    "/consulta": {
+      "files": 10,
+      "bytes": 487080,
+      "gzipBytes": 147566
+    },
+    "/consulta/[id]": {
+      "files": 13,
+      "bytes": 558142,
+      "gzipBytes": 170963
+    },
+    "/cuenta": {
+      "files": 11,
+      "bytes": 487268,
+      "gzipBytes": 147731
+    },
+    "/forbidden": {
+      "files": 11,
+      "bytes": 493544,
+      "gzipBytes": 150367
+    },
+    "/inicio": {
+      "files": 11,
+      "bytes": 493582,
+      "gzipBytes": 150372
+    },
+    "/inventario": {
+      "files": 11,
+      "bytes": 510171,
+      "gzipBytes": 155543
+    },
+    "/login": {
+      "files": 13,
+      "bytes": 623336,
+      "gzipBytes": 189881
+    },
+    "/pacientes": {
+      "files": 12,
+      "bytes": 507069,
+      "gzipBytes": 155278
+    },
+    "/pacientes/[id]": {
+      "files": 15,
+      "bytes": 575694,
+      "gzipBytes": 176877
+    },
+    "/preview/dental": {
+      "files": 13,
+      "bytes": 527668,
+      "gzipBytes": 162023
+    },
+    "/recepcion": {
+      "files": 10,
+      "bytes": 487080,
+      "gzipBytes": 147566
+    },
+    "/recuperar": {
+      "files": 13,
+      "bytes": 623338,
+      "gzipBytes": 189881
+    },
+    "/recuperar/nueva": {
+      "files": 14,
+      "bytes": 623565,
+      "gzipBytes": 190055
+    }
+  },
+  "fontFiles": 10,
+  "fontBytesOnDisk": 269660,
+  "baselineCommit": "e6c14f2",
+  "environment": "Same temporary build directory and shared dependencies, Node 26.3.1 / Next 16.4.3 / webpack. No .env.local in either snapshot."
+}

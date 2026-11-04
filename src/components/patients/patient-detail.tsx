@@ -1,16 +1,22 @@
 'use client'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, CalendarPlus, Pencil } from 'lucide-react'
 import { Modal } from '../ui'
 import { SourceChip, StatusChip } from '../chips'
-import { PatientForm } from './patient-form'
-import { PATIENT_STATUS_LABEL } from './patients-view'
-import { AppointmentDialog } from '../agenda/appointment-dialog'
+import { PATIENT_STATUS_LABEL } from '@/lib/domain/patients'
 import { formatDate, formatTime } from '@/lib/domain/time'
 import { formatPhone } from '@/lib/domain/phone'
 import type { BookingOptions, PatientDetail } from '@/server/queries/types'
+
+const PatientForm = dynamic(() => import('./patient-form').then((mod) => mod.PatientForm), {
+  loading: () => <p role="status" aria-live="polite" aria-busy="true" className="text-sm text-muted">Cargando formulario del paciente…</p>,
+})
+const AppointmentDialog = dynamic(() => import('../agenda/appointment-dialog').then((mod) => mod.AppointmentDialog), {
+  loading: () => <p role="status" aria-live="polite" aria-busy="true" className="text-sm text-muted">Cargando nueva cita…</p>,
+})
 
 export function PatientDetailView({ patient: p, options, canEdit, canBook, canAssignDentist, clinical }: {
   patient: PatientDetail; options: BookingOptions; canEdit: boolean; canBook: boolean; canAssignDentist: boolean
@@ -69,15 +75,15 @@ export function PatientDetailView({ patient: p, options, canEdit, canBook, canAs
         </div>
       </div>
 
-      <Modal open={editing} onClose={() => setEditing(false)} title="Editar paciente">
-        {editing && (
+      {editing && (
+        <Modal open={editing} onClose={() => setEditing(false)} title="Editar paciente">
           <PatientForm
             mode="edit" options={options} canAssignDentist={canAssignDentist} patientId={p.id} expectedUpdatedAt={p.updatedAt} onDone={() => setEditing(false)}
             initial={{ fullName: p.fullName, phone: p.phone ?? '', email: p.email ?? '', birthDate: p.birthDate ?? '', sex: p.sex ?? '', zone: p.zone ?? '', address: p.address ?? '', primaryDentistId: p.primaryDentistId ?? '' }}
           />
-        )}
-      </Modal>
-      <AppointmentDialog open={booking} onClose={() => setBooking(false)} options={options} preset={{ patient: { id: p.id, fullName: p.fullName, phone: p.phone } }} onCreated={() => { setBooking(false); router.refresh() }} />
+        </Modal>
+      )}
+      {booking && <AppointmentDialog open={booking} onClose={() => setBooking(false)} options={options} preset={{ patient: { id: p.id, fullName: p.fullName, phone: p.phone } }} onCreated={() => { setBooking(false); router.refresh() }} />}
     </>
   )
 }

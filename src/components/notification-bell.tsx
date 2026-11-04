@@ -16,11 +16,33 @@ export function NotificationBell({ initial }: { initial: NotificationItem[] }) {
 
   // Polling cada 15 s mientras la pestaña esta visible (Realtime llega mas adelante).
   useEffect(() => {
-    const tick = () => {
-      if (document.visibilityState === 'visible') listNotifications().then(setItems).catch(() => {})
+    let stopped = false
+    let inFlight = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const tick = async () => {
+      if (stopped || inFlight || document.visibilityState !== 'visible') return
+      inFlight = true
+      try {
+        const next = await listNotifications()
+        if (!stopped) setItems(next)
+      } catch {
+        // Keep the current notifications and retry after the regular interval.
+      } finally {
+        inFlight = false
+        if (!stopped && document.visibilityState === 'visible') timer = setTimeout(tick, POLL_MS)
+      }
     }
-    const t = setInterval(tick, POLL_MS)
-    return () => clearInterval(t)
+    const resume = () => {
+      clearTimeout(timer)
+      if (document.visibilityState === 'visible') void tick()
+    }
+    if (document.visibilityState === 'visible') timer = setTimeout(tick, POLL_MS)
+    document.addEventListener('visibilitychange', resume)
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', resume)
+    }
   }, [])
 
   useEffect(() => {

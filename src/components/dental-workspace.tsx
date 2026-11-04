@@ -1,12 +1,21 @@
 'use client'
 
 import { useEffect, useId, useOptimistic, useRef, useState, useTransition } from 'react'
+import dynamic from 'next/dynamic'
 import { CheckCircle2, Maximize2, Pencil, X } from 'lucide-react'
-import { DentalRender, type DentalRenderProps } from './dental-render'
+import type { DentalRenderProps } from './dental-render'
 import { Odontogram, type ToothMark } from './odontogram'
 import { getToothInfo, type Dentition } from '@/lib/teeth'
 import { CONDITION_LABEL, type ToothCondition } from '@/lib/domain/clinical'
 import { DentalFindingEditor, type DentalEditingProps } from './dental-finding-editor'
+
+const DentalRender = dynamic(() => import('./dental-render').then((mod) => mod.DentalRender), {
+  loading: () => (
+    <div role="status" className="dental-render p-5 text-sm text-muted">
+      Preparando la vista 3D…
+    </div>
+  ),
+})
 
 type Props = Omit<DentalRenderProps, 'onSelect' | 'onChooseTooth'> &
   DentalEditingProps & {
@@ -158,6 +167,7 @@ function DentalExplorer({
   presenting = false,
 }: Props & { presenting?: boolean }) {
   const [panel, setPanel] = useState<'map' | '3d'>(presenting && dentition === 'permanente' ? '3d' : 'map')
+  const [opened3D, setOpened3D] = useState(presenting && dentition === 'permanente')
   const info = selected ? getToothInfo(selected) : undefined
   const handleDentitionChange = (next: Dentition) => {
     if (next === dentition) return
@@ -171,7 +181,15 @@ function DentalExplorer({
         <button type="button" aria-pressed={panel === 'map'} onClick={() => setPanel('map')}>
           Mapa dental
         </button>
-        <button type="button" aria-pressed={panel === '3d'} disabled={dentition === 'temporal'} onClick={() => setPanel('3d')}>
+        <button
+          type="button"
+          aria-pressed={panel === '3d'}
+          disabled={dentition === 'temporal'}
+          onClick={() => {
+            setOpened3D(true)
+            setPanel('3d')
+          }}
+        >
           Boca 3D
         </button>
       </div>
@@ -213,7 +231,15 @@ function DentalExplorer({
           )}
         </section>
         <div className="dental-3d-panel min-w-0">
-          <DentalRender marks={marks} selected={selected} onSelect={onSelect} dentition={dentition} onChooseTooth={() => setPanel('map')} />
+          {(opened3D || (presenting && dentition === 'permanente')) && (
+            <DentalRender
+              marks={marks}
+              selected={selected}
+              onSelect={onSelect}
+              dentition={dentition}
+              onChooseTooth={() => setPanel('map')}
+            />
+          )}
         </div>
       </div>
     </div>

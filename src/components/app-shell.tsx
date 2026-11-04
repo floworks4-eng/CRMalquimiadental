@@ -20,8 +20,6 @@ import {
 } from 'lucide-react'
 import { signOut } from '@/server/actions/auth'
 import { Avatar, Modal, Wordmark } from './ui'
-import { NotificationBell } from './notification-bell'
-import type { NotificationItem } from '@/server/actions/agenda'
 
 const ICONS = {
   inicio: LayoutDashboard,
@@ -46,7 +44,7 @@ export function AppShell({
   user: { name: string; roleLabel: string }
   clinic: string
   items: NavItem[]
-  notifications: NotificationItem[]
+  notifications: React.ReactNode
   children: React.ReactNode
 }) {
   const path = usePathname()
@@ -150,7 +148,7 @@ export function AppShell({
             <button className="search-trigger md:hidden" onClick={() => setSearch(true)} aria-label="Buscar un paciente">
               <Search size={17} />
             </button>
-            <NotificationBell initial={notifications} />
+            {notifications}
             <Link href="/cuenta" className="md:hidden" aria-label="Mi cuenta">
               <Avatar name={user.name} size={34} />
             </Link>

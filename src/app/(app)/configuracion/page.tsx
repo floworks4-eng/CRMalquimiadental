@@ -9,5 +9,5 @@ export default async function ConfiguracionPage({ searchParams }: { searchParams
   await requireCapability('settings.manage')
   const { tab } = await searchParams
   const current = settingsTab(tab)
-  return <SettingsView data={await getSettings()} tab={current} />
+  return <SettingsView data={await getSettings(current)} tab={current} />
 }

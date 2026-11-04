@@ -20,8 +20,17 @@ export type CalendarEvent = {
 export type CalendarCreateSlot = { date: string; start?: string; cabinetId?: string }
 export const minuteOfTime = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
 export const calendarDateObject = (date: string) => new Date(date + 'T12:00:00Z')
-export const calendarDateLabel = (date: string, options: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat('es-BO', { ...options, timeZone: 'UTC' }).format(calendarDateObject(date))
+const calendarFormatters = new Map<string, Intl.DateTimeFormat>()
+export function calendarDateLabel(date: string, options: Intl.DateTimeFormatOptions) {
+  const key = JSON.stringify(options)
+  let formatter = calendarFormatters.get(key)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('es-BO', { ...options, timeZone: 'UTC' })
+    if (calendarFormatters.size >= 32) calendarFormatters.clear()
+    calendarFormatters.set(key, formatter)
+  }
+  return formatter.format(calendarDateObject(date))
+}
 export function isCalendarDate(date: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false
   const value = calendarDateObject(date)

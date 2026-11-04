@@ -41,6 +41,7 @@ El mapa empieza con figuras de dientes, con raíces arriba o abajo según la arc
 `src/lib/dental-scene.ts` usa las APIs públicas de Three.js, GLTFLoader y OrbitControls. Se retiró `@google/model-viewer` y el acceso a sus símbolos internos.
 
 - Modelo local: `public/models/teeth.glb`, 2 118 424 bytes, con materiales separados para coronas, raíces y capas anatómicas.
+- Descarga de producción: URL versionada por hash y negociación Brotli/gzip sin pérdida. Las variantes se generan/verifican con `npm run assets:dental` y se reutilizan desde caché. Detalles y mediciones en [rendimiento.md](rendimiento.md).
 - La escena solo se inicia al mostrarse. Renderiza cuando cambia la vista o durante un giro; pausa fuera de pantalla y cuando la pestaña está oculta.
 - Selección por raycasting de dientes visibles; encía, hueso y vasos no interceptan el clic. Las piezas registradas como ausentes permanecen ocultas aunque estén seleccionadas.
 - Limpieza de eventos, observadores, geometrías, materiales y contexto WebGL al desmontar.

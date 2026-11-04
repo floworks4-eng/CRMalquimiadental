@@ -1,18 +1,25 @@
 'use client'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { ChevronLeft, ChevronRight, Plus, CalendarDays, List, Search, MoreHorizontal, ArrowRight, Clock3 } from 'lucide-react'
 import { StatusChip } from '../chips'
 import { Avatar, PageHeader } from '../ui'
-import { AppointmentDialog, type DialogPreset } from './appointment-dialog'
-import { AppointmentPanel } from './appointment-panel'
+import type { DialogPreset } from './appointment-dialog'
 import { ClinicCalendar } from './clinic-calendar'
 import { addDays, formatTime, localDate, todayLaPaz, zonedToUtcIso } from '@/lib/domain/time'
 import { calendarDateLabel, moveMonth, startOfWeek, toCalendarEvent, type AgendaView, type CalendarCreateSlot } from '@/lib/domain/calendar'
 import { can, type Role } from '@/server/auth/permissions'
 import type { AppointmentCard, CalendarBoard } from '@/server/queries/types'
 import type { AppointmentStatus } from '@/lib/domain/status'
+
+const AppointmentDialog = dynamic(() => import('./appointment-dialog').then((mod) => mod.AppointmentDialog), {
+  loading: () => <p role="status" aria-live="polite" aria-busy="true" className="text-sm text-muted">Cargando nueva cita…</p>,
+})
+const AppointmentPanel = dynamic(() => import('./appointment-panel').then((mod) => mod.AppointmentPanel), {
+  loading: () => <p role="status" aria-live="polite" aria-busy="true" className="text-sm text-muted">Cargando detalles de la cita…</p>,
+})
 
 const FILTERS: { id: string; label: string; statuses: AppointmentStatus[] | null }[] = [
   { id: 'todas', label: 'Todas las citas', statuses: null },
@@ -55,6 +62,7 @@ export function AgendaBoard({
   const canCreate = can(role, 'agenda.manage')
   const [creating, setCreating] = useState<DialogPreset | null>(() => (createInitially && canCreate ? { date: board.date } : null))
   const linked = selectedId ? (board.appointments.find((a) => a.id === selectedId) ?? null) : null
+  const currentAppointment = selected ?? linked
   const currentFilter = FILTERS.find((value) => value.id === filter) ?? FILTERS[0]
   const appointments = board.appointments.filter(
     (a) => (!dentist || a.dentist.id === dentist) && normalize(a.patient?.fullName ?? 'Paciente').includes(normalize(query)),
@@ -344,21 +352,21 @@ export function AgendaBoard({
           <p>Selecciona una cita para ver sus acciones</p>
         </footer>
       </section>
-      <AppointmentDialog
+      {creating && <AppointmentDialog
         open={!!creating}
         onClose={() => {
           setCreating(null)
           if (createInitially) go({ nueva: null })
         }}
         options={board}
-        preset={creating ?? undefined}
+        preset={creating}
         onCreated={() => {
           setCreating(null)
           if (createInitially) go({ nueva: null })
           router.refresh()
         }}
-      />
-      <AppointmentPanel appointment={selected ?? linked} role={role} onClose={closePanel} onChanged={refresh} />
+      />}
+      {currentAppointment && <AppointmentPanel appointment={currentAppointment} role={role} onClose={closePanel} onChanged={refresh} />}
     </div>
   )
 }

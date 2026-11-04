@@ -23,6 +23,7 @@ const nextConfig: NextConfig = {
   experimental: { proxyClientMaxBodySize: '21mb' },
   devIndicators: false,
   poweredByHeader: false,
+  outputFileTracingIncludes: { '/models/*': ['./public/models/teeth.glb', './public/models/teeth.glb.br', './public/models/teeth.glb.gz'] },
   async headers() {
     return [
       {

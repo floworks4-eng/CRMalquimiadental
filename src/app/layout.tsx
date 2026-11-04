@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from 'next'
-import { Fraunces, Inter, JetBrains_Mono } from 'next/font/google'
+import { Fraunces, Inter } from 'next/font/google'
 import './globals.css'
 
-const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-fraunces', style: ['normal', 'italic'] })
+// The wordmark uses only Fraunces 500 italic; UI and numbers use Inter.
+const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-fraunces', style: 'italic', weight: '500' })
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
-const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' })
 
 export const metadata: Metadata = {
   title: 'Alquimia Dental',
@@ -15,7 +15,7 @@ export const viewport: Viewport = { themeColor: '#242528' }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es-BO" className={`${fraunces.variable} ${inter.variable} ${mono.variable}`}>
+    <html lang="es-BO" className={`${fraunces.variable} ${inter.variable}`}>
       <body>{children}</body>
     </html>
   )

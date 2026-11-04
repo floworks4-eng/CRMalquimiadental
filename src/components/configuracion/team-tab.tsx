@@ -43,15 +43,15 @@ export function TeamTab({ data }: { data: SettingsData }) {
       </section>
       <CreateMember />
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title={`Editar: ${editing?.fullName ?? ''}`}>
-        {editing && <MemberForm key={editing.id} m={editing} onDone={() => setEditing(null)} />}
-      </Modal>
-      <Modal open={!!password} onClose={() => setPassword(null)} title={`Contraseña de ${password?.fullName ?? ''}`}>
-        {password && <PasswordForm key={password.id} m={password} onDone={() => setPassword(null)} />}
-      </Modal>
-      <Modal open={!!schedule} onClose={() => setSchedule(null)} title={`Turnos: ${schedule?.fullName ?? ''}`} wide>
-        {schedule && <ScheduleForm key={schedule.id} m={schedule} hours={data.hours} onDone={() => setSchedule(null)} />}
-      </Modal>
+      {editing && <Modal open={!!editing} onClose={() => setEditing(null)} title={`Editar: ${editing.fullName}`}>
+        <MemberForm key={editing.id} m={editing} onDone={() => setEditing(null)} />
+      </Modal>}
+      {password && <Modal open={!!password} onClose={() => setPassword(null)} title={`Contraseña de ${password.fullName}`}>
+        <PasswordForm key={password.id} m={password} onDone={() => setPassword(null)} />
+      </Modal>}
+      {schedule && <Modal open={!!schedule} onClose={() => setSchedule(null)} title={`Turnos: ${schedule.fullName}`} wide>
+        <ScheduleForm key={schedule.id} m={schedule} hours={data.hours} onDone={() => setSchedule(null)} />
+      </Modal>}
     </div>
   )
 }

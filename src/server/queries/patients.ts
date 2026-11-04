@@ -1,4 +1,5 @@
 import 'server-only'
+import { cache } from 'react'
 import { createClient } from '../supabase/server'
 import { requireCapability } from '../auth/guards'
 import { searchTerm } from '@/lib/domain/text'
@@ -51,22 +52,28 @@ export async function searchPatients(f: PatientFilters) {
 }
 
 /** null si no existe o no tiene permiso: el llamador responde igual (no se revela la existencia). */
-export async function getPatientDetail(id: string): Promise<PatientDetail | null> {
+export const getPatientDetail = cache(async (id: string): Promise<PatientDetail | null> => {
   if (!/^[0-9a-f-]{36}$/.test(id)) return null
   await requireCapability('patients.read_directory')
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('patients')
-    .select(`${DIRECTORY}, email, sex, address, primary_dentist_id, updated_at, campaign:campaigns!patients_first_campaign_id_fkey(name)`)
-    .eq('id', id).maybeSingle()
+  const [patient, visits] = await Promise.allSettled([
+    supabase.from('patients')
+      .select(`${DIRECTORY}, email, sex, address, primary_dentist_id, updated_at, campaign:campaigns!patients_first_campaign_id_fkey(name)`)
+      .eq('id', id).maybeSingle(),
+    appointmentCards(supabase, (q) => q.eq('patient_id', id).order('starts_at', { ascending: false }).limit(50)),
+  ])
+  if (patient.status === 'rejected') throw patient.reason
+  const { data } = patient.value
+  // La existencia la decide la fila visible del paciente, incluso si fallaron las citas.
   if (!data) return null
+  if (visits.status === 'rejected') throw visits.reason
   const r = data as unknown as DirRow & { email: string | null; sex: string | null; address: string | null; primary_dentist_id: string | null; updated_at: string; campaign: { name: string } | null }
-  const appointments = await appointmentCards(supabase, (q) => q.eq('patient_id', id).order('starts_at', { ascending: false }).limit(50))
+  const appointments = visits.value
   return {
     ...toItem(r), email: r.email, sex: r.sex, address: r.address, primaryDentistId: r.primary_dentist_id,
     campaignName: r.campaign?.name ?? null, updatedAt: r.updated_at, appointments,
   }
-}
+})
 
 /** Para el selector de pacientes de "Nueva cita". */
 export async function pickPatients(q: string) {
@@ -87,7 +94,8 @@ export type AnamnesisView = {
 }
 
 /** Datos de salud: solo para quien puede leer lo clinico de ese paciente (RLS lo vuelve a exigir). */
-export async function getCurrentAnamnesis(patientId: string): Promise<AnamnesisView | null> {
+// React.cache solo deduplica durante el render de un request; nunca persiste pacientes entre sesiones.
+export const getCurrentAnamnesis = cache(async (patientId: string): Promise<AnamnesisView | null> => {
   if (!/^[0-9a-f-]{36}$/.test(patientId)) return null
   await requireCapability('patients.read_clinical')
   const { data } = await (await createClient())
@@ -106,4 +114,4 @@ export async function getCurrentAnamnesis(patientId: string): Promise<AnamnesisV
     medications: r.medications, reason: r.reason, emergencyContactName: r.emergency_contact_name, emergencyContactPhone: r.emergency_contact_phone,
     pregnancy: r.pregnancy, anticoagulants: r.anticoagulants, source: r.source, submittedAt: r.submitted_at, reviewedAt: r.reviewed_at,
   }
-}
+})

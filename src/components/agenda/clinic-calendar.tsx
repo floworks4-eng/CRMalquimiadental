@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { ChevronLeft, ChevronRight, Plus, CalendarDays } from 'lucide-react'
 import { addDays, formatTime, todayLaPaz, hm } from '@/lib/domain/time'
 import { STATUS_LABEL } from '@/lib/domain/status'
@@ -62,7 +62,21 @@ export function ClinicCalendar({
   const days = view === 'week' ? week : [date]
   const today = todayLaPaz()
   const now = minuteOfTime(clock)
-  const dayAppointments = appointments.filter((a) => a.date === date)
+  const grouped = useMemo(() => {
+    const days = new Map<string, CalendarEvent[]>()
+    const cabinets = new Map<string, CalendarEvent[]>()
+    for (const appointment of appointments) {
+      const day = days.get(appointment.date) ?? []
+      day.push(appointment)
+      days.set(appointment.date, day)
+      const key = `${appointment.date}|${appointment.cabinetId}`
+      const cabinet = cabinets.get(key) ?? []
+      cabinet.push(appointment)
+      cabinets.set(key, cabinet)
+    }
+    return { days, cabinets }
+  }, [appointments])
+  const dayAppointments = grouped.days.get(date) ?? []
   const colorOf = (a: CalendarEvent) =>
     TONES[
       Math.max(
@@ -139,7 +153,7 @@ export function ClinicCalendar({
           </div>
           <div className="calendar-month-grid">
             {monthDates(date).map((day) => {
-              const events = appointments.filter((a) => a.date === day)
+              const events = grouped.days.get(day) ?? []
               const outside = day.slice(0, 7) !== date.slice(0, 7)
               return (
                 <div key={day} className={`calendar-month-cell ${outside ? 'is-outside' : ''} ${day === today ? 'is-today' : ''}`}>
@@ -211,7 +225,7 @@ export function ClinicCalendar({
                       <span className="mb-1.5 h-1.5 w-1.5 rounded-full" style={{ background: TONES[i % TONES.length] }} aria-hidden />
                       <h3 className="text-xs font-semibold">{column.name}</h3>
                       <p className="mt-1 text-[0.65rem] text-muted">
-                        {dayAppointments.filter((a) => a.cabinetId === column.cabinet).length} citas
+                        {(grouped.cabinets.get(`${date}|${column.cabinet}`) ?? []).length} citas
                       </p>
                     </>
                   )}
@@ -227,7 +241,7 @@ export function ClinicCalendar({
                 ))}
               </div>
               {columns.map((column, columnIndex) => {
-                const events = appointments.filter((a) => a.date === column.date && (!column.cabinet || a.cabinetId === column.cabinet))
+                const events = (column.cabinet ? grouped.cabinets.get(`${column.date}|${column.cabinet}`) : grouped.days.get(column.date)) ?? []
                 const lanes = eventLanes(events)
                 const info = daysInfo.find((day) => day.date === column.date)
                 const canBookTime = (minutes: number) =>

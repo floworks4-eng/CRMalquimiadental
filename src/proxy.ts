@@ -8,12 +8,17 @@ const PUBLIC_PREFIXES = ['/login', '/recuperar', '/configuracion-inicial', '/pre
 
 export async function proxy(request: NextRequest) {
   if (!hasSupabaseEnv()) return NextResponse.next() // sin Supabase cada pagina muestra como configurarlo
-  const { response, claims } = await updateSession(request)
-
   const path = request.nextUrl.pathname
+  // Educational static preview and attribution never access a user session.
+  if (path === '/preview/dental' || path === '/models/ATTRIBUTION.md' || path === '/models/manifest.json' || path === '/api/health') return NextResponse.next()
+  const { response, claims } = await updateSession(request)
   if (!claims && !PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p + '/'))) {
     const redirect = NextResponse.redirect(new URL('/login', request.url))
     for (const c of response().cookies.getAll()) redirect.cookies.set(c) // conserva cookies refrescadas
+    for (const header of ['cache-control', 'expires', 'pragma']) {
+      const value = response().headers.get(header)
+      if (value) redirect.headers.set(header, value)
+    }
     return redirect
   }
   return response()

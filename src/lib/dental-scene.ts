@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { TOOTH_3D_COORDS } from './teeth'
+import { DENTAL_MODEL_URL } from './dental-model'
 import type { ToothCondition } from './domain/clinical'
 
 export type DentalLayers = { roots: boolean; bone: boolean; gums: boolean; vessels: boolean; nerves: boolean }
@@ -245,7 +246,7 @@ export function createDentalScene(
     })
   }
   new GLTFLoader().load(
-    '/models/teeth.glb',
+    DENTAL_MODEL_URL,
     (gltf) => {
       if (disposed) {
         disposeModel(gltf.scene)

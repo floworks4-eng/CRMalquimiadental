@@ -36,16 +36,20 @@ function Harness() {
 }
 
 describe('Flujo dental compartido por consulta e historial', () => {
-  it('mantiene sincronizadas la selección del modelo y la del mapa', () => {
+  it('mantiene sincronizadas la selección del modelo y la del mapa', async () => {
     render(<Harness />)
-    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar 21 en 3D' }))
+    expect(screen.queryByLabelText('Selección 3D')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Boca 3D' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Seleccionar 21 en 3D' }))
     expect(screen.getByRole('button', { name: /pieza 21:/ }).getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(screen.getByRole('button', { name: /pieza 46:/ }))
     expect(screen.getByLabelText('Selección 3D').textContent).toBe('46 · permanente')
   })
 
-  it('limpia la pieza al cambiar de dentición y no recupera una selección oculta', () => {
+  it('limpia la pieza al cambiar de dentición y no recupera una selección oculta', async () => {
     render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: 'Boca 3D' }))
+    await screen.findByLabelText('Selección 3D')
     fireEvent.click(screen.getByRole('button', { name: 'Infantiles' }))
     expect(screen.getByLabelText('Selección 3D').textContent).toBe('ninguna · temporal')
     expect((screen.getByRole('button', { name: 'Boca 3D' }) as HTMLButtonElement).disabled).toBe(true)
@@ -115,7 +119,8 @@ describe('Marcación directa desde el diente', () => {
   it('también abre el editor al seleccionar en 3D y permite salir sin guardar', async () => {
     const save = vi.fn()
     render(<EditableHarness onSave={save} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar 21 en 3D' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Boca 3D' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Seleccionar 21 en 3D' }))
     const editor = await screen.findByRole('dialog')
     expect(within(editor).getByText(/Arriba izquierda · pieza 21/)).toBeTruthy()
     fireEvent.click(within(editor).getByRole('button', { name: 'Cerrar selección de hallazgo' }))
@@ -128,7 +133,7 @@ describe('Marcación directa desde el diente', () => {
     render(<EditableHarness onSave={save} />)
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar al paciente' }))
     const presentation = await screen.findByRole('dialog')
-    fireEvent.click(within(presentation).getByRole('button', { name: 'Seleccionar 21 en 3D' }))
+    fireEvent.click(await within(presentation).findByRole('button', { name: 'Seleccionar 21 en 3D' }))
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
     expect(within(presentation).queryByRole('button', { name: 'Caries' })).toBeNull()
     expect(save).not.toHaveBeenCalled()

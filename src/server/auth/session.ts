@@ -19,17 +19,15 @@ export const getSession = cache(async (): Promise<Session | null> => {
 
   const [{ data: profile }, { data: m }] = await Promise.all([
     supabase.from('profiles').select('full_name').eq('id', claims.sub).maybeSingle(),
-    supabase.from('clinic_members').select('clinic_id, role, title').eq('user_id', claims.sub).eq('active', true).maybeSingle(),
+    supabase.from('clinic_members').select('clinic_id, role, title, clinic:clinics(name)').eq('user_id', claims.sub).eq('active', true).maybeSingle(),
   ])
-  let clinicName = ''
-  if (m) {
-    const { data: c } = await supabase.from('clinics').select('name').eq('id', m.clinic_id).maybeSingle()
-    clinicName = c?.name ?? ''
-  }
+  // The embedded clinic is subject to the same RLS as the previous lookup.
+  // Fetch it with membership rather than adding another sequential round trip.
+  const clinic = m?.clinic as { name: string } | null | undefined
   return {
     userId: claims.sub,
     email: (claims.email as string | undefined) ?? null,
     fullName: profile?.full_name ?? null,
-    member: m ? { clinicId: m.clinic_id, clinicName, role: m.role as Role, title: m.title } : null,
+    member: m ? { clinicId: m.clinic_id, clinicName: clinic?.name ?? '', role: m.role as Role, title: m.title } : null,
   }
 })
