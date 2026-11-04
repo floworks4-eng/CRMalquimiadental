@@ -1,17 +1,22 @@
 import type { NextConfig } from 'next'
 
-// Cabeceras de seguridad (F1-070). El navegador nunca habla con Supabase: todo pasa por el servidor de Next,
-// por eso connect-src es solo 'self'. Sin nonces: Next necesita scripts inline para hidratar.
+// Supabase se consulta desde el servidor; el navegador usa su origen para previsualizar archivos clínicos firmados.
+// Sin nonces: Next necesita scripts inline para hidratar.
 const isDev = process.env.NODE_ENV === 'development'
 const https = (process.env.NEXT_PUBLIC_SITE_URL ?? '').startsWith('https://')
+const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
+  : null
+const supabaseRealtimeOrigin = supabaseOrigin?.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:')
 
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' blob: data:",
+  `img-src 'self' blob: data:${supabaseOrigin ? ` ${supabaseOrigin}` : ''}`,
   "font-src 'self'",
-  "connect-src 'self'",
+  `connect-src 'self'${supabaseOrigin ? ` ${supabaseOrigin}` : ''}${supabaseRealtimeOrigin ? ` ${supabaseRealtimeOrigin}` : ''}`,
+  `frame-src 'self'${supabaseOrigin ? ` ${supabaseOrigin}` : ''}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
