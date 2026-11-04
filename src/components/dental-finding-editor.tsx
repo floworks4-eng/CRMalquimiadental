@@ -1,6 +1,6 @@
 'use client'
 
-import { useId } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { Check, Eraser, LoaderCircle, X } from 'lucide-react'
 import { CONDITION_LABEL, SURFACES, SURFACE_LABEL, type ToothCondition } from '@/lib/domain/clinical'
 import { getToothInfo } from '@/lib/teeth'
@@ -25,6 +25,8 @@ export type DentalEditingProps = {
   onMark?: (tooth: number, condition: ToothCondition) => Promise<string | undefined> | string | undefined
   onClear?: (tooth: number) => Promise<string | undefined> | string | undefined
   disabled?: boolean
+  editingHint?: ReactNode
+  temporary?: boolean
   surfaces?: string[]
   onSurfacesChange?: (surfaces: string[]) => void
 }
@@ -39,7 +41,13 @@ export function DentalFindingEditor({
   onClear,
   surfaces = [],
   onSurfacesChange,
+  disabled = false,
+  editingHint,
+  temporary = false,
 }: {
+  disabled?: boolean
+  editingHint?: ReactNode
+  temporary?: boolean
   tooth?: number
   mark?: ToothMark
   saving: boolean
@@ -54,14 +62,26 @@ export function DentalFindingEditor({
   const descriptionId = useId()
   const info = tooth ? getToothInfo(tooth) : undefined
 
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const dialog = ref.current
+    if (!dialog || !tooth) return
+    const previousFocus = document.activeElement as HTMLElement | null
+    const overflow = document.body.style.overflow
+    if (!dialog.open) dialog.showModal()
+    document.body.style.overflow = 'hidden'
+    return () => {
+      dialog.close()
+      document.body.style.overflow = overflow
+      previousFocus?.focus()
+    }
+  }, [tooth])
+
   return (
-    <section
-      className="rounded-2xl border border-gold/25 bg-black/15"
-      aria-label="Estado del diente"
-      role="region"
-      aria-describedby={info ? descriptionId : undefined}
-    >
-      {!info && <div className="p-5"><h3 className="font-medium text-gold-soft">Elige un diente</h3><p className="mt-2 text-sm text-muted">Toca una pieza en la boca 3D o en el mapa. Aquí podrás registrar su estado sin salir de esta pantalla.</p></div>}
+    <dialog ref={ref} className="dental-finding-dialog" aria-label="Estado del diente"
+      aria-describedby={descriptionId}
+      onCancel={(event) => { if (saving) event.preventDefault(); else onClose() }}
+      onClick={(event) => { if (event.target === ref.current && !saving) onClose() }}>
       {info && (
         <>
           <div className="dental-finding-dialog__header">
@@ -77,7 +97,7 @@ export function DentalFindingEditor({
               </h3>
               <p className="mt-1 text-xs text-muted">
                 {mark
-                  ? `${CONDITION_LABEL[mark.condition]} · ${mark.today ? 'registrado hoy' : 'registro anterior'}`
+                  ? `${CONDITION_LABEL[mark.condition]} · ${temporary ? 'prueba temporal' : mark.today ? 'registrado hoy' : 'registro anterior'}`
                   : 'Sin hallazgos registrados'}
               </p>
             </div>
@@ -93,14 +113,15 @@ export function DentalFindingEditor({
           </div>
           <div className="px-4 pb-4 sm:px-5 sm:pb-5">
             <p id={descriptionId} className="mb-3 text-sm text-bone">
-              Elige el estado. Se guarda al tocarlo; después puedes seleccionar otro diente.
+              {temporary ? 'Prueba sin paciente: el estado se aplica al modelo, pero no se guarda en una historia clínica.' : 'Elige el estado para guardarlo en este diente.'}
             </p>
+            {editingHint && <div className="mb-3 rounded-xl border border-gold/25 bg-gold/5 p-3 text-sm">{editingHint}</div>}
             <div role="group" aria-label={`Marcar hallazgo en pieza ${tooth}`} className="dental-condition-grid">
               {QUICK_CONDITIONS.map((condition) => (
                 <button
                   key={condition}
                   type="button"
-                  disabled={saving}
+                  disabled={saving || disabled}
                   className="dental-condition-option"
                   data-condition={condition}
                   aria-pressed={Boolean(mark?.today && mark.condition === condition)}
@@ -124,7 +145,7 @@ export function DentalFindingEditor({
                     <button
                       key={surface}
                       type="button"
-                      disabled={saving}
+                      disabled={saving || disabled}
                       aria-pressed={surfaces.includes(surface)}
                       onClick={() =>
                         onSurfacesChange(
@@ -140,11 +161,12 @@ export function DentalFindingEditor({
               </details>
             )}
             {mark?.today && onClear && (
-              <button type="button" disabled={saving} onClick={onClear} className="btn btn-ghost mt-3 min-h-11 w-full text-xs">
+              <button type="button" disabled={saving || disabled} onClick={onClear} className="btn btn-ghost mt-3 min-h-11 w-full text-xs">
                 <Eraser size={16} aria-hidden />
-                Quitar marca de hoy
+                {temporary ? 'Quitar marca de prueba' : 'Quitar marca de hoy'}
               </button>
             )}
+            <button type="button" className="btn btn-secondary mt-3 min-h-11 w-full" disabled={saving} onClick={onClose}>Listo · volver al modelo</button>
             {saving && (
               <p role="status" className="mt-3 flex items-center justify-center gap-2 text-sm text-gold-soft">
                 <LoaderCircle size={16} className="animate-spin" aria-hidden /> Guardando hallazgo…
@@ -158,6 +180,6 @@ export function DentalFindingEditor({
           </div>
         </>
       )}
-    </section>
+    </dialog>
   )
 }

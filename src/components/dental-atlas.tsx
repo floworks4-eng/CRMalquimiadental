@@ -17,6 +17,7 @@ export function DentalAtlas() {
   const [appointments, setAppointments] = useState<AppointmentCard[]>([])
   const [appointmentId, setAppointmentId] = useState('')
   const [session, setSession] = useState<Session | null>(null)
+  const [trialMarks, setTrialMarks] = useState<Record<number, ToothMark>>({})
   const [selected, setSelected] = useState<number>()
   const [dentition, setDentition] = useState<Dentition>('permanente')
   const [surfaces, setSurfaces] = useState<string[]>([])
@@ -65,12 +66,14 @@ export function DentalAtlas() {
     }
   }, [appointmentId])
   const marks = useMemo(() => {
+    if (!appointmentId) return trialMarks
     const result: Record<number, ToothMark> = {}
     for (const f of session?.findings ?? []) result[f.tooth] = { condition: f.condition, today: f.encounterId === session?.encounter?.id }
     return result
-  }, [session])
+  }, [session, appointmentId, trialMarks])
   const editable = session?.encounter?.status === 'in_progress'
   async function mark(tooth: number, condition: ToothCondition) {
+    if (!appointmentId) { setTrialMarks((m) => ({ ...m, [tooth]: { condition, today: true } })); return }
     if (!session?.encounter || !editable) return 'Inicia la atención para registrar hallazgos.'
     setWriting(true)
     try {
@@ -93,6 +96,7 @@ export function DentalAtlas() {
     }
   }
   async function clear(tooth: number) {
+    if (!appointmentId) { setTrialMarks((m) => { const next = { ...m }; delete next[tooth]; return next }); return }
     if (!session?.encounter || !editable) return 'Esta atención no se puede editar.'
     setWriting(true)
     try {
@@ -103,6 +107,29 @@ export function DentalAtlas() {
       setWriting(false)
     }
   }
+  const startButton = !session?.encounter && session?.canStart ? (
+            <button
+              className="btn btn-primary ml-3"
+              disabled={pending || writing}
+              onClick={() =>
+                start(async () => {
+                  setError('')
+                  try {
+                    const r = await startEncounter(appointmentId)
+                    if (!r.ok) {
+                      setError(r.error.message)
+                      return
+                    }
+                    setSession(await loadDentalSession(appointmentId))
+                  } catch {
+                    setError('No pudimos iniciar la atención. Intenta de nuevo.')
+                  }
+                })
+              }
+            >
+              {pending ? 'Iniciando…' : 'Iniciar atención'}
+            </button>
+  ) : null
   return (
     <div className="space-y-4">
       <div className="grid items-end gap-3 sm:grid-cols-[180px_1fr]">
@@ -170,32 +197,10 @@ export function DentalAtlas() {
             : session.encounter
               ? 'Atención cerrada · solo lectura.'
               : 'Inicia la atención para guardar hallazgos.'}
-          {!session.encounter && session.canStart && (
-            <button
-              className="btn btn-primary ml-3"
-              disabled={pending || writing}
-              onClick={() =>
-                start(async () => {
-                  setError('')
-                  try {
-                    const r = await startEncounter(appointmentId)
-                    if (!r.ok) {
-                      setError(r.error.message)
-                      return
-                    }
-                    setSession(await loadDentalSession(appointmentId))
-                  } catch {
-                    setError('No pudimos iniciar la atención. Intenta de nuevo.')
-                  }
-                })
-              }
-            >
-              {pending ? 'Iniciando…' : 'Iniciar atención'}
-            </button>
-          )}
+          {startButton}
         </div>
       ) : (
-        <p className="text-sm text-muted">Modo exploración: selecciona una atención arriba para guardar estados en un paciente.</p>
+        <p className="text-sm text-muted">Prueba sin paciente: toca un diente para marcar caries, curado u otro estado. Las marcas son temporales. Para guardarlas en una historia clínica, selecciona una atención.</p>
       )}
       <DentalWorkspace
         key={appointmentId}
@@ -208,11 +213,13 @@ export function DentalAtlas() {
         dentition={dentition}
         onDentitionChange={setDentition}
         initialView="3d"
-        onMark={editable ? mark : undefined}
-        onClear={editable ? clear : undefined}
+        onMark={mark}
+        onClear={clear}
         surfaces={surfaces}
         onSurfacesChange={setSurfaces}
-        disabled={pending || loading}
+        disabled={pending || Boolean(appointmentId && (loading || !editable))}
+        temporary={!appointmentId}
+        editingHint={appointmentId && !editable ? <>{loading ? "Cargando la atención…" : session?.encounter ? "Esta atención está cerrada. Sus registros son de solo lectura." : "Inicia la atención para guardar los hallazgos de este paciente."}{startButton}</> : undefined}
       />
     </div>
   )

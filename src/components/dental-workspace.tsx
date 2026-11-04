@@ -61,7 +61,7 @@ export function DentalWorkspace(props: Props) {
     props.onSelect(tooth)
     setError(undefined)
     setNotice(undefined)
-    setEditingTooth(props.onMark && tooth && !props.disabled ? tooth : undefined)
+    setEditingTooth(props.onMark && tooth ? tooth : undefined)
   }
 
   function save(condition?: ToothCondition) {
@@ -77,7 +77,7 @@ export function DentalWorkspace(props: Props) {
           setError(message)
           return
         }
-        setNotice(condition ? `Estado guardado: ${CONDITION_LABEL[condition]} · pieza ${tooth}` : `Marca de hoy quitada de la pieza ${tooth}`)
+        setNotice(condition ? `${props.temporary ? "Prueba aplicada" : "Estado guardado"}: ${CONDITION_LABEL[condition]} · pieza ${tooth}` : `${props.temporary ? "Marca de prueba" : "Marca de hoy"} quitada de la pieza ${tooth}`)
       } catch {
         setError('No se pudo guardar. Revisa tu conexión y vuelve a intentarlo.')
       }
@@ -113,13 +113,16 @@ export function DentalWorkspace(props: Props) {
           </button>
         </div>
       )}
-      <div className="dental-edit-container"><div className={props.onMark ? "dental-edit-layout" : ""}>
+      <div>
       <DentalExplorer {...props} marks={optimisticMarks} onSelect={selectTooth} />
       {props.onMark && (
         <DentalFindingEditor
           tooth={editingTooth}
           mark={editingTooth ? optimisticMarks[editingTooth] : undefined}
           saving={saving}
+          disabled={props.disabled}
+          editingHint={props.editingHint}
+          temporary={props.temporary}
           error={error}
           onClose={() => {
             if (!saving) setEditingTooth(undefined)
@@ -130,7 +133,7 @@ export function DentalWorkspace(props: Props) {
           onSurfacesChange={props.onSurfacesChange}
         />
       )}
-      </div></div>
+      </div>
       <dialog
         ref={dialogRef}
         aria-labelledby={titleId}
@@ -151,7 +154,7 @@ export function DentalWorkspace(props: Props) {
                 <X size={18} aria-hidden /> Volver a la ficha
               </button>
             </div>
-            <DentalExplorer {...props} marks={optimisticMarks} onMark={undefined} onClear={undefined} presenting />
+            <DentalExplorer {...props} marks={optimisticMarks} onSelect={selectTooth} presenting />
           </div>
         )}
       </dialog>

@@ -77,7 +77,7 @@ describe('Marcación visual integrada a la consulta', () => {
   it('envía paciente, atención y pieza correctos, y conserva las caras ya registradas al cambiar de hallazgo', async () => {
     render(<ConsultaView data={data} />)
     fireEvent.click(screen.getByRole('button', { name: /pieza 16: Corona/ }))
-    const editor = screen.getByRole('region', { name: 'Estado del diente' })
+    const editor = screen.getByRole('dialog', { name: 'Estado del diente' })
     fireEvent.click(within(editor).getByRole('button', { name: 'Roto / fracturado' }))
     await waitFor(() =>
       expect(actions.add).toHaveBeenCalledExactlyOnceWith({
@@ -88,7 +88,7 @@ describe('Marcación visual integrada a la consulta', () => {
         surfaces: ['M'],
       }),
     )
-    await waitFor(() => expect(screen.getByRole('region', { name: 'Estado del diente' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Estado del diente' })).toBeTruthy())
     expect(actions.refresh).toHaveBeenCalledTimes(1)
   })
 
@@ -96,9 +96,9 @@ describe('Marcación visual integrada a la consulta', () => {
     actions.add.mockResolvedValue({ ok: false, error: { code: 'IMMUTABLE', message: 'Esta atención ya terminó.' } })
     render(<ConsultaView data={data} />)
     fireEvent.click(screen.getByRole('button', { name: /pieza 21:/ }))
-    fireEvent.click(within(screen.getByRole('region', { name: 'Estado del diente' })).getByRole('button', { name: 'Caries' }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Estado del diente' })).getByRole('button', { name: 'Caries' }))
     expect(await screen.findByText('Esta atención ya terminó.')).toBeTruthy()
-    expect(screen.getByRole('region', { name: 'Estado del diente' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'Estado del diente' })).toBeTruthy()
     expect(screen.queryByText('Estado guardado: Caries · pieza 21')).toBeNull()
     expect(actions.refresh).not.toHaveBeenCalled()
   })
@@ -106,7 +106,7 @@ describe('Marcación visual integrada a la consulta', () => {
   it('quita únicamente la marca de la pieza elegida en la atención actual', async () => {
     render(<ConsultaView data={data} />)
     fireEvent.click(screen.getByRole('button', { name: /pieza 16: Corona/ }))
-    fireEvent.click(within(screen.getByRole('region', { name: 'Estado del diente' })).getByRole('button', { name: 'Quitar marca de hoy' }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Estado del diente' })).getByRole('button', { name: 'Quitar marca de hoy' }))
     await waitFor(() => expect(actions.remove).toHaveBeenCalledExactlyOnceWith({ encounterId: 'encounter', tooth: 16 }))
     expect(actions.add).not.toHaveBeenCalled()
     expect(actions.refresh).toHaveBeenCalledTimes(1)
