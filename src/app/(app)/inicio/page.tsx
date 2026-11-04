@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import {
   ArrowRight,
   ArrowUpRight,
@@ -19,6 +20,7 @@ import { can } from '@/server/auth/permissions'
 import { getDashboard } from '@/server/queries/dashboard'
 import { formatBs } from '@/lib/domain/money'
 import { formatDayLong, formatTime } from '@/lib/domain/time'
+import { PatientInsights } from '@/components/dashboard/patient-insights'
 
 export const metadata = { title: 'Mi día · Alquimia Dental' }
 
@@ -292,6 +294,9 @@ export default async function InicioPage() {
           </section>
         )}
       </div>
+      <Suspense fallback={<section className="glass mt-6 p-5 text-sm text-muted" role="status">Cargando estadísticas de pacientes…</section>}>
+        <PatientInsights />
+      </Suspense>
       {d.setup && <SetupSteps setup={d.setup} />}
     </div>
   )

@@ -5,8 +5,10 @@ import { createClient } from '../supabase/server'
 import { requireCapability } from '../auth/guards'
 import { fail, fieldErrors, ok, type ActionResult } from '../errors'
 import { patientSchema, phoneField, updatePatientSchema } from '../schemas/patients'
+import { normalizeBoPhone } from '@/lib/domain/phone'
+import type { AppointmentSource } from '@/lib/domain/status'
 import { normalizeName } from '@/lib/domain/text'
-import { pickPatients } from '../queries/patients'
+import { pickPatients, recentPatientPicker } from '../queries/patients'
 
 const DUP = 'Ya existe un paciente con ese teléfono.'
 
@@ -59,6 +61,39 @@ export async function updatePatient(input: unknown): Promise<ActionResult> {
 
 export async function searchPatientPicker(q: string) {
   return pickPatients(String(q).slice(0, 60))
+}
+
+export async function listRecentPatientPicker() {
+  return recentPatientPicker()
+}
+
+/** Alta mínima en Nueva cita. El equipo completa teléfono y anamnesis después en la ficha. */
+export async function createQuickPatient(input: unknown): Promise<ActionResult<{ id: string; fullName: string; phone: string | null }>> {
+  const parsed = z.object({
+    fullName: z.string().trim().min(3, 'Escribe al menos 3 letras.').max(120),
+    phone: z.string().trim().max(30).default(''),
+    firstSource: z.enum(['whatsapp', 'web', 'campaign', 'phone', 'walk_in', 'referral']),
+  }).safeParse(input)
+  if (!parsed.success) return fail('VALIDATION', 'Revisa los datos.', fieldErrors(parsed.error.issues))
+  const s = await requireCapability('patients.create')
+  const d = parsed.data
+  const phone = d.phone ? normalizeBoPhone(d.phone) : null
+  if (d.phone && !phone) return fail('VALIDATION', 'Revisa el celular.', { phone: 'Usa +591 y 8 dígitos que empiecen con 6 o 7.' })
+  const { data, error } = await (await createClient()).from('patients').insert({
+    clinic_id: s.member.clinicId,
+    full_name: d.fullName,
+    normalized_name: normalizeName(d.fullName),
+    phone_e164: phone,
+    phone_raw: d.phone || null,
+    first_source: d.firstSource as AppointmentSource,
+    primary_dentist_id: s.member.role === 'dentist' ? s.userId : null,
+    created_by: s.userId,
+  }).select('id').single()
+  if (error || !data) return error?.code === '23505'
+    ? fail('CONFLICT', DUP, { phone: DUP })
+    : fail('INTERNAL', 'No pudimos crear al paciente.')
+  revalidatePath('/pacientes')
+  return ok({ id: data.id as string, fullName: d.fullName, phone })
 }
 
 /** El odontologo (o admin) confirma que leyo la anamnesis vigente antes de atender. Queda auditado por trigger. */

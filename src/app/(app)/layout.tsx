@@ -18,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: '/inicio', label: 'Mi día', icon: 'inicio' },
     { href: '/agenda', label: 'Agenda', icon: 'agenda' },
     { href: '/pacientes', label: 'Pacientes', icon: 'pacientes' },
+    ...(can(r, 'encounters.read') ? [{ href: '/dientes', label: 'Modelo dental 3D', icon: 'dientes' as const }] : []),
     ...(can(r, 'cash.read') ? [{ href: '/caja', label: 'Caja', icon: 'caja' as const }] : []),
     { href: '/inventario', label: 'Inventario', icon: 'inventario' },
     ...(can(r, 'settings.manage') ? [{ href: '/configuracion', label: 'Configuración', icon: 'configuracion' as const }] : []),

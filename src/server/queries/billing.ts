@@ -1,9 +1,88 @@
 import 'server-only'
 import { createClient } from '../supabase/server'
 import { requireCapability } from '../auth/guards'
-import { dayBoundsUtc } from '@/lib/domain/time'
+import { dayBoundsUtc, localDate, todayLaPaz } from '@/lib/domain/time'
 import { INVOICE_SELECT, mapInvoices, type InvoiceSummary } from './clinical'
 import type { PaymentMethod } from '@/lib/domain/clinical'
+import { summarizeCashMovements } from '@/lib/domain/cash-report'
+
+export type CashMonth = {
+  month: string
+  billedCents: number
+  collectedCents: number
+  otherIncomeCents: number
+  expensesCents: number
+  netCents: number
+  pendingCents: number
+  aging: { recent: number; middle: number; old: number }
+  byMethod: Record<PaymentMethod, number>
+  byCategory: { name: string; kind: string; cents: number }[]
+  receivables: { id: string; number: string; patient: string; issuedAt: string; days: number; balanceCents: number }[]
+  movements: { id: string; at: string; kind: string; category: string; concept: string; amountCents: number; method: PaymentMethod; patient: string | null; document: string | null }[]
+}
+
+export function validCashMonth(month: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(month) && month <= todayLaPaz().slice(0, 7)
+}
+
+/** Reporte de gestión completo del mes: todas las páginas, sin truncar el libro de movimientos. */
+export async function getCashMonth(month: string): Promise<CashMonth> {
+  await requireCapability('cash.read')
+  if (!validCashMonth(month)) throw new Error('Mes no válido')
+  const supabase = await createClient()
+  const start = `${month}-01`
+  const [year, number] = month.split('-').map(Number)
+  const end = `${year + (number === 12 ? 1 : 0)}-${String(number === 12 ? 1 : number + 1).padStart(2, '0')}-01`
+  const [from] = dayBoundsUtc(start)
+  const [to] = dayBoundsUtc(end)
+  type TxRow = {
+    id: string; kind: string; category: string; concept: string; amount_cents: number; method: PaymentMethod; created_at: string
+    patient: { full_name: string } | null; invoice: { number: string } | null
+  }
+  type InvRow = { total_cents: number; issued_at: string }
+  type PendingRow = { id: string; number: string; total_cents: number; paid_cents: number; issued_at: string; patient: { full_name: string } | null }
+  const readPages = async <T,>(getPage: (start: number, end: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> => {
+    const result: T[] = []
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await getPage(offset, offset + 499)
+      if (error) throw new Error('No pudimos cargar el reporte de caja')
+      const page = (data ?? []) as T[]
+      result.push(...page)
+      if (page.length < 500) break
+    }
+    return result
+  }
+  const [tx, invoices, pending] = await Promise.all([
+    readPages<TxRow>((a, b) => supabase.from('transactions')
+      .select('id, kind, category, concept, amount_cents, method, created_at, patient:patients(full_name), invoice:invoices(number)')
+      .gte('created_at', from).lt('created_at', to).order('created_at').order('id').range(a, b)),
+    readPages<InvRow>((a, b) => supabase.from('invoices').select('total_cents, issued_at')
+      .in('status', ['issued', 'partially_paid', 'paid']).gte('issued_at', from).lt('issued_at', to).order('issued_at').order('id').range(a, b)),
+    readPages<PendingRow>((a, b) => supabase.from('invoices').select('id, number, total_cents, paid_cents, issued_at, patient:patients(full_name)')
+      .in('status', ['issued', 'partially_paid']).order('issued_at').order('id').range(a, b)),
+  ])
+  const summary = summarizeCashMovements(tx)
+  const today = todayLaPaz()
+  const aging = { recent: 0, middle: 0, old: 0 }
+  const receivables: CashMonth['receivables'] = []
+  let pendingCents = 0
+  for (const row of pending) {
+    const balance = row.total_cents - row.paid_cents
+    pendingCents += balance
+    const days = Math.max(0, Math.floor((Date.parse(today + 'T12:00:00Z') - Date.parse(localDate(row.issued_at) + 'T12:00:00Z')) / 86400000))
+    receivables.push({ id: row.id, number: row.number, patient: row.patient?.full_name ?? '—', issuedAt: row.issued_at, days, balanceCents: balance })
+    if (days <= 30) aging.recent += balance
+    else if (days <= 60) aging.middle += balance
+    else aging.old += balance
+  }
+  return {
+    month,
+    billedCents: invoices.reduce((n, x) => n + x.total_cents, 0),
+    ...summary, pendingCents, aging,
+    receivables: receivables.sort((a, b) => b.days - a.days || a.number.localeCompare(b.number)),
+    movements: tx.map((x) => ({ id: x.id, at: x.created_at, kind: x.kind, category: x.category, concept: x.concept, amountCents: x.amount_cents, method: x.method, patient: x.patient?.full_name ?? null, document: x.invoice?.number ?? null })).reverse(),
+  }
+}
 
 export type CashSession = {
   id: string; status: 'open' | 'closed'; openedAt: string; openedBy: string; openingFloatCents: number

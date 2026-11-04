@@ -13,6 +13,8 @@ import type { InvoiceSummary } from '@/server/queries/clinical'
 import type { ActionResult } from '@/server/errors'
 
 type Dialog = { kind: 'open' } | { kind: 'close' } | { kind: 'movement'; type: 'income' | 'expense' } | { kind: 'pay'; invoice: InvoiceSummary } | { kind: 'void'; paymentId: string; concept: string } | null
+const EXPENSE_CATEGORIES = ['Insumos', 'Alquiler', 'Servicios', 'Personal', 'Mantenimiento', 'Equipamiento', 'Impuestos', 'Otros gastos']
+const INCOME_CATEGORIES = ['Venta de producto', 'Otro ingreso']
 
 export function CajaView({ day, canVoid }: { day: CashDay; canVoid: boolean }) {
   const [dialog, setDialog] = useState<Dialog>(null)
@@ -22,6 +24,7 @@ export function CajaView({ day, canVoid }: { day: CashDay; canVoid: boolean }) {
   return (
     <div className="fade-in">
       <PageHeader eyebrow={formatDayLong(day.date)} title="Caja">
+        <Link href={`/caja/resumen?mes=${day.date.slice(0, 7)}`} className="btn btn-secondary">Resumen mensual</Link>
         <Link href={`/caja?date=${addDays(day.date, -1)}`} className="btn btn-ghost" aria-label="Día anterior">←</Link>
         <Link href="/caja" className="btn btn-secondary">Hoy</Link>
         {!isToday && <Link href={`/caja?date=${addDays(day.date, 1)}`} className="btn btn-ghost" aria-label="Día siguiente">→</Link>}
@@ -145,7 +148,7 @@ function DialogBody({ dialog, expected, onDone }: { dialog: NonNullable<Dialog>;
   const [amount, setAmount] = useState(dialog.kind === 'pay' ? String((dialog.invoice.totalCents - dialog.invoice.paidCents) / 100) : '')
   const [method, setMethod] = useState<PaymentMethod>('cash')
   const [text, setText] = useState('')
-  const [category, setCategory] = useState('')
+  const [category, setCategory] = useState(dialog.kind === 'movement' ? (dialog.type === 'expense' ? 'Otros gastos' : 'Otro ingreso') : '')
   const [key] = useState(() => crypto.randomUUID())
   const [closed, setClosed] = useState<{ expectedCents: number; countedCents: number; differenceCents: number } | null>(null)
 
@@ -251,7 +254,7 @@ function DialogBody({ dialog, expected, onDone }: { dialog: NonNullable<Dialog>;
       {amountField('Monto (Bs.)')}
       {methodPicker}
       <Field label="Concepto" error={fields.concept}>{(id) => <input id={id} className="field" maxLength={120} placeholder={dialog.type === 'expense' ? 'Ej. compra de agua, pasajes' : 'Ej. venta de cepillo'} value={text} onChange={(e) => setText(e.target.value)} />}</Field>
-      <Field label="Categoría (opcional)">{(id) => <input id={id} className="field" maxLength={40} placeholder={dialog.type === 'expense' ? 'gasto' : 'otro ingreso'} value={category} onChange={(e) => setCategory(e.target.value)} />}</Field>
+      <Field label="Categoría">{(id) => <select id={id} className="field" value={category} onChange={(e) => setCategory(e.target.value)}>{(dialog.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map((x) => <option key={x} value={x}>{x}</option>)}</select>}</Field>
       {footer('Registrar', () => { const c = cents(); if (c !== null) send(() => addCashMovement({ kind: dialog.type, amountCents: c, method, concept: text, category: category || undefined })) })}
     </div>
   )

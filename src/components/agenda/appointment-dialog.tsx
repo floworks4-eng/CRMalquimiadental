@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Modal, Field } from '../ui'
 import { createAppointment, getSlots } from '@/server/actions/agenda'
-import { searchPatientPicker } from '@/server/actions/patients'
+import { createQuickPatient, listRecentPatientPicker, searchPatientPicker } from '@/server/actions/patients'
 import { formatPhone } from '@/lib/domain/phone'
 import { formatDayLong, formatTime, localDate, todayLaPaz } from '@/lib/domain/time'
 import { SOURCE_LABEL } from '@/lib/domain/status'
@@ -46,6 +46,10 @@ function Form({
   const [patient, setPatient] = useState<Patient | null>(preset?.patient ?? null)
   const [q, setQ] = useState('')
   const [found, setFound] = useState<{ q: string; items: Patient[] } | null>(null)
+  const [creatingPatient, setCreatingPatient] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newPhone, setNewPhone] = useState('')
+  const [patientError, setPatientError] = useState('')
   const [treatmentId, setTreatmentId] = useState(
     options.treatments.find((t) => t.name.startsWith('Consulta'))?.id ?? options.treatments[0]?.id ?? '',
   )
@@ -67,12 +71,31 @@ function Form({
   const slots = loaded?.key === key ? loaded.slots : []
   const dentistName = (id: string) => options.dentists.find((d) => d.id === id)?.fullName ?? '—'
 
-  // Busqueda de pacientes con debounce.
+  // Lista reciente al abrir y busqueda con debounce; ninguna respuesta vieja cambia la seleccion.
   useEffect(() => {
-    if (patient || q.trim().length < 2) return
-    const t = setTimeout(() => searchPatientPicker(q).then((items) => setFound({ q, items })), 250)
-    return () => clearTimeout(t)
-  }, [q, patient])
+    if (patient || creatingPatient) return
+    let stale = false
+    if (q.trim().length === 1) return
+    const t = setTimeout(() => {
+      const search = q.trim() ? searchPatientPicker(q) : listRecentPatientPicker()
+      search.then((items) => { if (!stale) setFound({ q, items }) }).catch(() => { if (!stale) setPatientError('No pudimos buscar pacientes. Intenta de nuevo.') })
+    }, q.trim() ? 250 : 0)
+    return () => { stale = true; clearTimeout(t) }
+  }, [q, patient, creatingPatient])
+
+  const createPatientHere = async () => {
+    setPatientError('')
+    setSaving(true)
+    try {
+      const r = await createQuickPatient({ fullName: newName, phone: newPhone, firstSource: source })
+      if (!r.ok) { setPatientError(r.error.fields?.fullName ?? r.error.fields?.phone ?? r.error.message); return }
+      setPatient(r.data)
+      setCreatingPatient(false)
+      setErrors((e) => ({ ...e, patient: '' }))
+    } catch {
+      setPatientError('No pudimos crear al paciente. Intenta de nuevo.')
+    } finally { setSaving(false) }
+  }
 
   // Horarios libres para el tratamiento, dia y odontologo elegidos.
   useEffect(() => {
@@ -170,10 +193,27 @@ function Form({
                   className="field"
                   autoComplete="off"
                   value={q}
-                  onChange={(e) => setQ(e.target.value)}
+                  onChange={(e) => { setQ(e.target.value); setPatientError('') }}
                 />
-                {found && found.q === q && (
-                  <ul className="mt-2 space-y-1" aria-label="Resultados">
+                {patientError && <p role="alert" className="mt-2 text-sm text-bad">{patientError}</p>}
+                {creatingPatient ? (
+                  <div className="mt-2 space-y-3 rounded-xl border border-gold/30 bg-gold/5 p-3">
+                    <p className="text-sm font-medium">Paciente nuevo</p>
+                    <label className="block text-xs text-muted">Nombre
+                      <input className="field mt-1" value={newName} maxLength={120} onChange={(e) => setNewName(e.target.value)} autoFocus />
+                    </label>
+                    <label className="block text-xs text-muted">Celular (opcional)
+                      <input className="field mt-1" value={newPhone} inputMode="tel" placeholder="+591 7XXXXXXX" onChange={(e) => setNewPhone(e.target.value)} />
+                    </label>
+                    <p className="text-xs text-muted">La ficha se crea con estos datos. Puedes completarla después en Pacientes.</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className="btn btn-primary" disabled={saving} onClick={createPatientHere}>{saving ? 'Creando…' : 'Crear y seleccionar'}</button>
+                      <button type="button" className="btn btn-ghost" onClick={() => { setCreatingPatient(false); setPatientError('') }}>Volver a la lista</button>
+                    </div>
+                  </div>
+                ) : found && found.q === q && (
+                  <ul className="mt-2 space-y-1" aria-label={q.trim() ? 'Resultados' : 'Pacientes recientes'}>
+                    {!q.trim() && <li className="pb-1 text-xs text-muted">Pacientes recientes</li>}
                     {found.items.map((p) => (
                       <li key={p.id}>
                         <button
@@ -186,11 +226,10 @@ function Form({
                         </button>
                       </li>
                     ))}
-                    {found.items.length === 0 && (
-                      <li className="text-sm text-muted">Sin resultados. Crea al paciente primero desde «Pacientes».</li>
-                    )}
+                    {found.items.length === 0 && <li className="text-sm text-muted">No encontramos pacientes con ese nombre o celular.</li>}
                   </ul>
                 )}
+                {!creatingPatient && <button type="button" className="btn btn-secondary mt-2 min-h-11 text-xs" onClick={() => { setNewName(q); setCreatingPatient(true); setPatientError('') }}>+ Crear paciente nuevo</button>}
               </>
             )}
           </Field>
@@ -203,12 +242,14 @@ function Form({
             id={id}
             aria-describedby={d}
             className="field"
+            disabled={options.treatments.length === 0}
             value={treatmentId}
             onChange={(e) => {
               setTreatmentId(e.target.value)
               setSlot(null)
             }}
           >
+            {options.treatments.length === 0 && <option value="">Aún no hay tratamientos activos</option>}
             {options.treatments.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name} · {t.durationMin} min
@@ -217,6 +258,7 @@ function Form({
           </select>
         )}
       </Field>
+      {options.treatments.length === 0 && <p className="text-xs text-warn sm:col-span-2">Para confirmar citas, un administrador debe cargar un tratamiento en Configuración → Tratamientos. Puedes crear y seleccionar al paciente ahora.</p>}
       <Field label="Odontólogo">
         {(id) => (
           <select
@@ -263,6 +305,8 @@ function Form({
           <p role="alert" className="text-sm text-bad">
             {loaded.error}
           </p>
+        ) : !treatmentId ? (
+          <p className="text-sm text-muted">Los horarios aparecerán cuando haya un tratamiento activo.</p>
         ) : slots.length === 0 ? (
           <p className="text-sm text-muted">No hay horarios libres ese día con esos filtros. Prueba otra fecha u otro odontólogo.</p>
         ) : (
@@ -372,7 +416,7 @@ function Form({
         <button type="button" className="btn btn-ghost" onClick={onCancel}>
           Cancelar
         </button>
-        <button className="btn btn-primary" disabled={saving}>
+        <button className="btn btn-primary" disabled={saving || !treatmentId}>
           {saving ? 'Guardando…' : 'Confirmar cita'}
         </button>
       </div>

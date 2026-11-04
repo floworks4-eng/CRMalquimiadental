@@ -87,6 +87,17 @@ export async function pickPatients(q: string) {
   return ((data ?? []) as { id: string; full_name: string; phone_e164: string | null }[]).map((p) => ({ id: p.id, fullName: p.full_name, phone: p.phone_e164 }))
 }
 
+/** Pacientes recientes para que Nueva cita sea util incluso antes de escribir. RLS limita la lista por rol. */
+export async function recentPatientPicker() {
+  await requireCapability('patients.read_directory')
+  const { data, error } = await (await createClient()).from('patients')
+    .select('id, full_name, phone_e164').is('archived_at', null)
+    .order('created_at', { ascending: false }).limit(12)
+  if (error) throw new Error('No pudimos cargar los pacientes')
+  return ((data ?? []) as { id: string; full_name: string; phone_e164: string | null }[])
+    .map((p) => ({ id: p.id, fullName: p.full_name, phone: p.phone_e164 }))
+}
+
 export type AnamnesisView = {
   id: string; version: number; allergies: string[]; allergyOther: string | null; conditions: string[]; medications: string | null
   reason: string | null; emergencyContactName: string | null; emergencyContactPhone: string | null; pregnancy: boolean | null

@@ -25,6 +25,7 @@ const ICONS = {
   inicio: LayoutDashboard,
   agenda: CalendarDays,
   consulta: Stethoscope,
+  dientes: Stethoscope,
   recepcion: ConciergeBell,
   pacientes: Users,
   caja: Wallet,

@@ -19,6 +19,7 @@ const DentalRender = dynamic(() => import('./dental-render').then((mod) => mod.D
 
 type Props = Omit<DentalRenderProps, 'onSelect' | 'onChooseTooth'> &
   DentalEditingProps & {
+    initialView?: 'map' | '3d'
     dentition: Dentition
     onSelect: (tooth: number | undefined) => void
     onDentitionChange: (dentition: Dentition) => void
@@ -165,9 +166,10 @@ function DentalExplorer({
   onMark,
   disabled,
   presenting = false,
+  initialView = 'map',
 }: Props & { presenting?: boolean }) {
-  const [panel, setPanel] = useState<'map' | '3d'>(presenting && dentition === 'permanente' ? '3d' : 'map')
-  const [opened3D, setOpened3D] = useState(presenting && dentition === 'permanente')
+  const [panel, setPanel] = useState<'map' | '3d'>((presenting || initialView === '3d') && dentition === 'permanente' ? '3d' : 'map')
+  const [opened3D, setOpened3D] = useState((presenting || initialView === '3d') && dentition === 'permanente')
   const info = selected ? getToothInfo(selected) : undefined
   const handleDentitionChange = (next: Dentition) => {
     if (next === dentition) return
