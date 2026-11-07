@@ -64,6 +64,7 @@ function EditableHarness({ onSave }: { onSave: NonNullable<DentalEditingProps['o
   const [selected, setSelected] = useState<number>()
   const [dentition, setDentition] = useState<Dentition>('permanente')
   const [marks, setMarks] = useState<Record<number, ToothMark>>({})
+  const [surfaces, setSurfaces] = useState<string[]>([])
   return (
     <DentalWorkspace
       marks={marks}
@@ -76,6 +77,8 @@ function EditableHarness({ onSave }: { onSave: NonNullable<DentalEditingProps['o
         if (!error) setMarks((current) => ({ ...current, [tooth]: { condition, today: true } }))
         return error
       }}
+      surfaces={surfaces}
+      onSurfacesChange={setSurfaces}
       onClear={(tooth) => {
         setMarks((current) => {
           const next = { ...current }
@@ -105,6 +108,19 @@ describe('Marcación directa desde el diente', () => {
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Estado del diente' })).getByRole('button', { name: 'Quitar marca de hoy' }))
     await waitFor(() => expect(screen.getByRole('dialog', { name: 'Estado del diente' })).toBeTruthy())
     await waitFor(() => expect(screen.getByRole('button', { name: /pieza 16: sin hallazgos/ })).toBeTruthy())
+  })
+
+  it('guarda las caras cambiadas después del hallazgo antes de cerrar', async () => {
+    const save = vi.fn().mockResolvedValue(undefined)
+    render(<EditableHarness onSave={save} />)
+    fireEvent.click(screen.getByRole('button', { name: /pieza 16:/ }))
+    const editor = await screen.findByRole('dialog', { name: 'Estado del diente' })
+    fireEvent.click(within(editor).getByRole('button', { name: 'Caries' }))
+    await waitFor(() => expect((within(editor).getByRole('button', { name: 'Caries' }) as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(within(editor).getByRole('button', { name: 'Mesial' }))
+    fireEvent.click(within(editor).getByRole('button', { name: 'Listo · volver al modelo' }))
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Estado del diente' })).toBeNull())
   })
 
   it('revierte el color y conserva el editor con un error si el servidor rechaza el cambio', async () => {

@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { TOOTH_3D_COORDS } from './teeth'
+import { findingGeometry } from './dental-appearance'
+import { CONDITION_COLOR } from './dental-colors'
 import { DENTAL_MODEL_URL } from './dental-model'
 import type { ToothCondition } from './domain/clinical'
 
@@ -14,19 +16,6 @@ export type DentalSceneState = {
   reducedMotion: boolean
 }
 export type DentalAngle = 'front' | 'right' | 'left'
-
-const CROWN_COLORS: Partial<Record<ToothCondition, string>> = {
-  sano: '#9cdab7',
-  obturacion: '#72c9dc',
-  caries: '#df9d83',
-  fractura: '#df9d83',
-  corona: '#d7b56d',
-  protesis: '#d7b56d',
-  endodoncia: '#9ac4f0',
-  implante: '#9ac4f0',
-  sellante: '#9cdab7',
-  otro: '#dbc99b',
-}
 
 /** Public Three.js APIs only. Each view owns and disposes its WebGL resources. */
 export function createDentalScene(
@@ -72,6 +61,8 @@ export function createDentalScene(
   const target = new THREE.Vector3(0, -0.52, 0.25)
   const goalTarget = target.clone()
   const goalPosition = new THREE.Vector3(0, 1, 8)
+  const originals = new Map<THREE.Mesh, THREE.BufferGeometry>()
+  const applied = new Map<THREE.Mesh, ToothCondition | undefined>()
   let state = initial
   let disposed = false
   let visible = true
@@ -142,14 +133,25 @@ export function createDentalScene(
         const root = tooth[2] === 'root'
         const chosen = selected === fdi
         const condition = marks[fdi]?.condition
-        mesh.visible = condition !== 'ausente' && (!root || through || (!layers.gums && !layers.bone))
-        alpha = 1
-        mat.color.set(root ? '#d9c092' : (CROWN_COLORS[condition] ?? '#f2e8cf'))
+        mesh.visible = !root || through || (!layers.gums && !layers.bone)
+        // A faint outline keeps absent pieces selectable to correct their status.
+        if (condition === 'ausente') alpha = 0.16
+        mat.wireframe = condition === 'ausente'
+        if (!applied.has(mesh) || applied.get(mesh) !== condition) {
+          let original = originals.get(mesh)
+          if (!original) { original = mesh.geometry; originals.set(mesh, original) }
+          if (mesh.geometry !== original) mesh.geometry.dispose()
+          mesh.geometry = (condition === 'fractura' && !root) || (condition === 'implante' && root)
+            ? findingGeometry(original, condition, root, fdi < 30)
+            : original
+          applied.set(mesh, condition)
+        }
+        mat.color.set(root && condition !== 'implante' && condition !== 'endodoncia' ? '#d9c092' : (CONDITION_COLOR[condition] ?? '#f2e8cf'))
+        mat.metalness = condition === 'implante' || condition === 'corona' ? 0.65 : 0
         mat.roughness = root ? 0.52 : 0.3
         if (chosen) {
-          mat.color.set(root ? '#f3d48e' : '#fff2ce')
           mat.emissive.set('#24456d')
-          mat.emissiveIntensity = 0.4
+          mat.emissiveIntensity = 0.16
         }
         mesh.renderOrder = chosen ? 3 : 1
       } else if (name.includes('gum')) {
@@ -257,7 +259,10 @@ export function createDentalScene(
         if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshStandardMaterial) meshes.push(obj)
       })
       scene.add(gltf.scene)
-      size = new THREE.Box3().setFromObject(gltf.scene).getSize(new THREE.Vector3())
+      // Frame the dentition rather than the full atlas (whose vessels extend far away).
+      const mouthBounds = new THREE.Box3()
+      meshes.filter((mesh) => /^tooth-/.test(mesh.material.name) || mesh.material.name.includes('gum')).forEach((mesh) => mouthBounds.expandByObject(mesh))
+      size = mouthBounds.getSize(new THREE.Vector3())
       syncMaterials()
       resize()
       events.onReady()
@@ -303,6 +308,8 @@ export function createDentalScene(
       renderer.domElement.removeEventListener('pointercancel', pointerCancel)
       controls.dispose()
       disposeModel(scene)
+      originals.forEach((geometry) => geometry.dispose())
+      originals.clear()
       renderer.dispose()
       renderer.forceContextLoss()
       renderer.domElement.remove()

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
 import { FileText, NotebookPen, Stethoscope, ClipboardList, Plus, Camera, ExternalLink } from 'lucide-react'
 import { Field } from '../ui'
+import { dentalToothHistory, latestDentalFindings, type DentalStateEvent } from '@/lib/domain/dental'
 import type { ToothMark } from '../odontogram'
 import { DentalWorkspace } from '../dental-workspace'
 import { addClinicalNote, clearPatientToothState, savePatientToothState } from '@/server/actions/patients'
@@ -14,12 +15,18 @@ import { dentitionForTooth, getToothInfo, type Dentition } from '@/lib/teeth'
 import type { InvoiceSummary, PatientClinical } from '@/server/queries/clinical'
 
 type Entry =
+  | { kind: 'dental'; date: string; item: DentalStateEvent }
   | { kind: 'encounter'; date: string; item: PatientClinical['history'][number] }
   | { kind: 'note'; date: string; item: PatientClinical['notes'][number] }
   | { kind: 'anamnesis'; date: string; item: PatientClinical['anamnesisVersions'][number] }
 
-const FILTERS = { all: 'Todo', encounter: 'Atenciones', note: 'Notas e historial importado', anamnesis: 'Anamnesis' } as const
+const FILTERS = { all: 'Todo', dental: 'Cambios dentales', encounter: 'Atenciones', note: 'Notas e historial importado', anamnesis: 'Anamnesis' } as const
 const SOURCE = { patient_checkin: 'check-in', staff: 'equipo', import: 'importada' } as const
+const describeDentalEvent = (event: DentalStateEvent) => {
+  const label = (state: DentalStateEvent['after']) => state
+    ? `${CONDITION_LABEL[state.condition]}${state.surfaces.length ? ` (${state.surfaces.join('')})` : ''}` : 'Marca quitada'
+  return `${(event.after ?? event.before)?.tooth}: ${event.before ? `${label(event.before)} → ` : ''}${label(event.after)}`
+}
 const finding = (s: string) => {
   const [tooth, cond, surf] = s.split(' ')
   return `${tooth}: ${CONDITION_LABEL[cond as ToothCondition] ?? cond}${surf ? ` ${surf}` : ''}`
@@ -36,19 +43,18 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
 
   const handleSelectTooth = (n: number | undefined) => {
     setSelected(n)
-    setSurfaces(data.toothStates.find((f) => f.tooth === n)?.surfaces ?? [])
+    setSurfaces(latestDentalFindings(data.findings, data.toothStates).find((f) => f.tooth === n)?.surfaces ?? [])
     if (n !== undefined) {
       setDentition(dentitionForTooth(n))
     }
   }
   const marks = useMemo(() => {
     const m: Record<number, ToothMark> = {}
-    for (const f of data.findings) m[f.tooth] = { condition: f.condition, today: false }
-    for (const f of data.toothStates) m[f.tooth] = { condition: f.condition, today: true }
+    for (const f of latestDentalFindings(data.findings, data.toothStates)) m[f.tooth] = { condition: f.condition, today: f.encounterId === '' }
     return m
   }, [data.findings, data.toothStates])
   const toothHistory = selected
-    ? [...data.findings.filter((f) => f.tooth === selected), ...data.toothStates.filter((f) => f.tooth === selected)]
+    ? dentalToothHistory(data.findings, data.toothStates, data.toothStateHistory, selected)
     : []
   const saveTooth = async (tooth: number, condition: ToothCondition) => {
     const result = await savePatientToothState({ patientId, tooth, condition, surfaces })
@@ -65,6 +71,7 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
   const timeline = useMemo<Entry[]>(
     () =>
       [
+        ...data.toothStateHistory.map((item) => ({ kind: 'dental' as const, date: item.recordedAt, item })),
         ...data.history.map((item) => ({ kind: 'encounter' as const, date: item.startedAt, item })),
         ...data.notes.map((item) => ({ kind: 'note' as const, date: item.notedOn + 'T12:00:00', item })),
         ...data.anamnesisVersions.map((item) => ({ kind: 'anamnesis' as const, date: item.submittedAt, item })),
@@ -95,6 +102,7 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
           </div>
         </div>
         <AddNote patientId={patientId} />
+        {!data.toothStateHistoryAvailable && <p className="mt-2 text-xs text-muted">El historial de cambios directos del odontograma está disponible para administración.</p>}
         {shown.length === 0 ? (
           <p className="mt-3 text-sm text-muted">
             Sin registros todavía. Aparecen aquí las atenciones, las notas, el historial importado y los cambios de anamnesis.
@@ -104,6 +112,7 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
             {shown.map((e) => (
               <li key={e.kind + (e.item as { id: string }).id} className="relative">
                 <span aria-hidden className="absolute -left-[1.4rem] top-1.5 h-2.5 w-2.5 rounded-full border border-gold/60 bg-[#1e1f21]" />
+                {e.kind === 'dental' && <div><p className="text-xs text-muted">{formatDate(e.item.recordedAt)} · Cambio dental</p><p className="mt-1 text-sm text-bone">{describeDentalEvent(e.item)}</p></div>}
                 {e.kind === 'encounter' && <EncounterEntry e={e.item} />}
                 {e.kind === 'note' && (
                   <div>
@@ -158,10 +167,9 @@ export function PatientClinicalView({ patientId, data, child }: { patientId: str
             ) : (
               <ul className="space-y-0.5">
                 {toothHistory.map((f) => (
-                  <li key={f.recordedAt}>
+                  <li key={f.id}>
                     <span className="num text-muted">{formatDate(f.recordedAt)}</span> ·{' '}
-                    <span className="text-bone">{CONDITION_LABEL[f.condition]}</span>
-                    {f.surfaces.length > 0 && ` (${f.surfaces.join('')})`}
+                    <span className="text-bone">{describeDentalEvent(f)}</span>
                   </li>
                 ))}
               </ul>

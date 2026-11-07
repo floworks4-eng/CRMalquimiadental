@@ -269,7 +269,7 @@ export default async function InicioPage() {
               <Wallet size={19} className="text-gold" aria-hidden />
             </div>
             <p className="num mt-5 text-3xl font-semibold">{formatBs(d.money.incomeTodayCents)}</p>
-            <p className="mt-1.5 text-xs text-muted">Ingresos de hoy · {d.money.cashOpen ? 'Caja abierta' : 'Caja cerrada'}</p>
+            <p className="mt-1.5 text-xs text-muted">Balance neto de hoy · {d.money.cashOpen ? 'Caja abierta' : 'Caja cerrada'}</p>
             <p className="mt-4 text-xs text-muted">
               Por cobrar: <span className="font-medium text-gold-soft">{formatBs(d.money.pendingCents)}</span>
             </p>

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { DentalRender } from './dental-render'
 
 const runtime = vi.hoisted(() => ({
@@ -25,16 +25,15 @@ describe('Vista dental para explicar al paciente', () => {
     const onSelect = vi.fn()
     render(<DentalRender marks={marks} selected={16} onSelect={onSelect} />)
     await ready()
-    expect(screen.getByRole('button', { name: 'Dentadura' }).getAttribute('aria-pressed')).toBe('true')
-    expect((screen.getByText('Más opciones de anatomía').closest('details') as HTMLDetailsElement).open).toBe(false)
-    fireEvent.click(screen.getByRole('button', { name: 'Ver raíces' }))
+    expect(screen.getByRole('button', { name: 'Dentadura completa' }).getAttribute('aria-pressed')).toBe('true')
+    expect((screen.getByText('Anatomía').closest('details') as HTMLDetailsElement).open).toBe(false)
+    fireEvent.click(within(screen.getByRole('group', { name: 'Qué quieres mostrar' })).getByRole('button', { name: 'Raíces' }))
     expect(runtime.api.update.mock.lastCall?.[0].layers).toEqual({ roots: true, bone: false, gums: true, nerves: false, vessels: false })
     fireEvent.click(screen.getByRole('button', { name: 'Nervios y vasos' }))
     expect(runtime.api.update.mock.lastCall?.[0].layers).toMatchObject({ nerves: true, vessels: true, roots: true, bone: false, gums: false })
-    expect(screen.getByText(/Amarillo: nervios/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Empezar de nuevo' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar dentadura completa' }))
     expect(onSelect).toHaveBeenCalledWith(undefined)
-    expect(screen.getByRole('button', { name: 'Dentadura' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Dentadura completa' }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('sincroniza nuevos registros y callbacks sin recrear la escena y libera los recursos al salir', async () => {

@@ -7,13 +7,14 @@ import type { Session } from '../auth/session'
  * automática de fetch; no son mediciones de tiempo ni de un snapshot transaccional):
  * - Dashboard admin: 10 -> 10 (1 cita + 3 caja + 1 stock + 5 setup),
  *   barreras secuenciales 4 -> 1. Recepción: 5 -> 5, 3 -> 1; dentista: 2 -> 2, 2 -> 1.
- * - Consulta visible: base 7 -> 7; + receta y, si hay insumos, stock (1/2);
+ * - Consulta visible: base 7 -> 8 (incluye estado dental); + receta y, si hay insumos, stock (1/2);
  *   o + factura y addenda (2) para encuentro terminado/voided. Profundidad máxima
  *   2/3/4 sin cambios, pero encuentro y catálogo arrancan junto a cita. Paciente,
  *   anamnesis, hallazgos y plan siguen dependiendo del patientId de la cita visible.
  *   Cita ausente o sin paciente: 1 -> 3 lecturas; UUID inválido: 0 -> 0.
  * - Historia original: 7 + F firmas. Tras paralelizar: mismo total, sin esperar
- *   otras lecturas para firmar. Ahora: 7 + ceil(F/100), con lotes en paralelo y
+ *   otras lecturas para firmar. Ahora: 8 + ceil(F/100), + 1 auditoría dental solo para admin, incluyendo el estado dental,
+ *   con lotes en paralelo y
  *   TTL 3600; F=0 no llama a Storage, F=101 pasa de 101 firmas HTTP a 2.
  *   Error por archivo -> url null; error completo devuelto -> todas las URLs de
  *   ese lote null, sin fallback individual. Rechazos de transporte se propagan.
@@ -57,7 +58,8 @@ vi.mock('react', async () => {
 })
 
 import { getDashboard } from './dashboard'
-import { getConsulta, getPatientClinical, getPatientInvoices } from './clinical'
+import { findingsOf, getConsulta, getPatientClinical, getPatientInvoices } from './clinical'
+import { latestDentalFindings } from '@/lib/domain/dental'
 import { getCurrentAnamnesis, getPatientDetail } from './patients'
 
 const patientId = '11111111-1111-4111-8111-111111111111'
@@ -125,6 +127,7 @@ class Query implements PromiseLike<Result> {
   lt(...args: unknown[]) { this.operations.push(['lt', ...args]); return this }
   order(...args: unknown[]) { this.operations.push(['order', ...args]); return this }
   limit(...args: unknown[]) { this.operations.push(['limit', ...args]); return this }
+  range(...args: unknown[]) { this.operations.push(['range', ...args]); return this }
   maybeSingle() { this.operations.push(['maybeSingle']); return this }
   then<T = Result, E = never>(yes?: ((r: Result) => T | PromiseLike<T>) | null, no?: ((e: unknown) => E | PromiseLike<E>) | null): Promise<T | E> {
     return this.execute(this).then(yes, no)
@@ -265,13 +268,13 @@ describe('consulta: dependencias por identificador y contratos clínicos', () =>
     a.resolve(ok([appointment]))
     await until(() => tables().includes('v_current_anamnesis'))
     expect(query('patients').operations).toContainEqual(['eq', 'id', patientId])
-    for (const table of ['v_current_anamnesis', 'tooth_findings', 'treatment_plan_items']) {
+    for (const table of ['v_current_anamnesis', 'tooth_findings', 'patient_tooth_states', 'treatment_plan_items']) {
       expect(query(table).operations).toContainEqual(['eq', 'patient_id', patientId])
     }
     expect(query('treatment_plan_items').operations).toEqual(expect.arrayContaining([['neq', 'status', 'cancelled'], ['order', 'sequence'], ['order', 'created_at']]))
     t.resolve(ok(db.defaults.treatments))
     const value = await result
-    expect(db.started).toHaveLength(8) // 7 base + receta vacía; no stock sin necesidades.
+    expect(db.started).toHaveLength(9) // 8 base + receta vacía; no stock sin necesidades.
     expect(value).toMatchObject({ appointment: { id: appointmentId }, patient: { id: patientId, fullName: patient.full_name, phone: patient.phone_e164 }, anamnesis: { version: 2, allergies: [], conditions: [] }, encounter: { id: 'encounter', status: 'in_progress' }, findings: [{ tooth: 11, condition: 'caries', notes: 'Hallazgo' }], treatments: [{ priceCents: 12500, requiresTooth: true, category: 'General' }], supplies: [], invoice: null, addenda: [], canFinish: true, canDiscount: false })
     expect(tables()).not.toContain('v_stock')
   })
@@ -291,7 +294,7 @@ describe('consulta: dependencias por identificador y contratos clínicos', () =>
     expect(value?.plan.map((p) => p.id)).toEqual(['plan', 'second', 'done-here'])
     expect(query('v_stock').operations).toContainEqual(['in', 'supply_item_id', ['supply']])
     expect(value).toMatchObject({ canFinish: true, canDiscount: true })
-    expect(db.started).toHaveLength(9)
+    expect(db.started).toHaveLength(10)
   })
 
   it('cuenta cada tratamiento por separado y acumula recetas que comparten insumo sin incluir items terminados', async () => {
@@ -321,7 +324,7 @@ describe('consulta: dependencias por identificador y contratos clínicos', () =>
     expect(tables()).not.toContain('treatment_supplies')
     gate.resolve(ok(invoice))
     expect(await result).toMatchObject({ invoice: { number: 'F-001', totalCents: 12500, paidCents: 2500, discountCents: 500, patient: { id: patientId } }, addenda: [{ id: 'add', reason: 'Corrección', notes: 'Detalle', createdAt: stamp, author: '—' }], canFinish: false, canDiscount: false })
-    expect(db.started).toHaveLength(9)
+    expect(db.started).toHaveLength(10)
     for (const table of ['invoices', 'encounter_addenda']) expect(query(table).operations).toContainEqual(['eq', 'encounter_id', 'encounter'])
   })
 
@@ -356,7 +359,7 @@ describe('historia: firmas dependientes solo de archivos autorizados', () => {
     db.defaults.anamnesis_versions = [{ ...anamnesis, allergies: ['Ninguna', 'Penicilina'], allergy_other: 'Látex', conditions: ['Ninguno', 'Diabetes'], author: null }]
     db.signed.mockReturnValue(signed.promise)
     const result = render(() => getPatientClinical(patientId))
-    await until(() => db.started.length === 7)
+    await until(() => db.started.length === 9)
     expect(db.signed).not.toHaveBeenCalled()
     files.resolve(ok([
       { id: 'f1', kind: 'photo', mime: 'image/jpeg', size_bytes: '42', storage_path: 'clinic/patient/first', created_at: stamp },
@@ -425,7 +428,11 @@ describe('historia: firmas dependientes solo de archivos autorizados', () => {
       id: row.id, kind: row.kind, mime: row.mime, sizeBytes: Number(row.size_bytes), createdAt: stamp,
       url: `https://storage.test/${row.storage_path}`,
     })))
-    expect(db.started).toHaveLength(7)
+    expect(tables()).toEqual(expect.arrayContaining([
+      'v_current_anamnesis', 'tooth_findings', 'patient_tooth_states', 'treatment_plan_items',
+      'encounters', 'clinical_notes', 'anamnesis_versions', 'patient_files', 'audit_log',
+    ]))
+    expect(db.started).toHaveLength(9)
     expect(db.individual).not.toHaveBeenCalled()
     expect(query('patient_files').operations).toContainEqual(['eq', 'patient_id', patientId])
   })
@@ -564,5 +571,71 @@ describe('seguridad y memoización de request con React Server real', () => {
     db.defaults.patients = null
     expect(await render(() => getPatientDetail(patientId))).toBeNull()
     expect(tables().filter((t) => t === 'patients')).toHaveLength(3)
+  })
+})
+
+
+describe('dental persistence regressions', () => {
+  it('loads findings beyond the 1000-row API cap with stable ordering and no omissions', async () => {
+    const rows = Array.from({ length: 1001 }, (_, i) => ({ ...finding, id: `f-${i}`, tooth_fdi: i === 1000 ? 16 : 11, condition: i === 1000 ? 'sano' : 'caries' }))
+    db.handlers.set('tooth_findings', (q) => {
+      const range = q.operations.find(([op]) => op === 'range')!
+      return ok(rows.slice(Number(range[1]), Number(range[2]) + 1))
+    })
+    const result = await render(() => findingsOf(db as never, patientId))
+    expect(result).toHaveLength(1001)
+    expect(result.at(-1)).toMatchObject({ tooth: 16, condition: 'sano' })
+    const pages = db.started.filter((q) => q.table === 'tooth_findings')
+    expect(pages.map((q) => q.operations.find(([op]) => op === 'range'))).toEqual([
+      ['range', 0, 499], ['range', 500, 999], ['range', 1000, 1499],
+    ])
+    for (const q of pages) expect(q.operations).toEqual(expect.arrayContaining([
+      ['eq', 'patient_id', patientId], ['order', 'recorded_at'], ['order', 'id'],
+    ]))
+  })
+
+  it('fails rather than returning partial findings when a later page fails', async () => {
+    db.handlers.set('tooth_findings', (q) => q.operations.some(([op, start]) => op === 'range' && start === 0)
+      ? ok(Array.from({ length: 500 }, () => finding)) : { data: null, error: { message: 'network' } })
+    await expect(render(() => findingsOf(db as never, patientId))).rejects.toThrow('No pudimos cargar los hallazgos dentales.')
+  })
+
+  it('patient and consultation readers share current state by timestamp, preserving encounter history', async () => {
+    db.defaults.patient_tooth_states = [{ tooth_fdi: 11, condition: 'sano', surfaces: ['O'], updated_at: '2026-11-04T14:00:00Z' }]
+    const consulta = await render(() => getConsulta(appointmentId))
+    db.defaults.encounters = []
+    const clinical = await render(() => getPatientClinical(patientId))
+    expect(latestDentalFindings(consulta!.findings, consulta!.toothStates)).toEqual(latestDentalFindings(clinical!.findings, clinical!.toothStates))
+    expect(latestDentalFindings(consulta!.findings, consulta!.toothStates)[0]).toMatchObject({ condition: 'sano', surfaces: ['O'], encounterId: '' })
+    expect(consulta?.findings[0].condition).toBe('caries')
+    db.defaults.tooth_findings = [{ ...finding, condition: 'obturacion', recorded_at: '2026-11-05T14:00:00Z' }]
+    db.defaults.encounters = encounter
+    const newer = await render(() => getConsulta(appointmentId))
+    expect(latestDentalFindings(newer!.findings, newer!.toothStates)[0].condition).toBe('obturacion')
+  })
+
+  it('returns projected create/update/delete history to admins and never queries audit for dentists', async () => {
+    db.defaults.encounters = []
+    const before = { tooth_fdi: 16, condition: 'caries', surfaces: ['M'], private_field: 'must not escape' }
+    const after = { ...before, condition: 'sano' }
+    db.defaults.audit_log = [
+      { id: 1, at: stamp, before: null, after: before },
+      { id: 2, at: stamp, before, after },
+      { id: 3, at: stamp, before: after, after: null },
+    ]
+    const admin = await render(() => getPatientClinical(patientId))
+    expect(admin?.toothStateHistoryAvailable).toBe(true)
+    expect(admin?.toothStateHistory).toHaveLength(3)
+    expect(admin?.toothStateHistory[1]).toEqual({ id: 'audit:2', recordedAt: stamp,
+      before: { tooth: 16, condition: 'caries', surfaces: ['M'] }, after: { tooth: 16, condition: 'sano', surfaces: ['M'] } })
+    expect(admin?.toothStateHistory[2].after).toBeNull()
+    expect(query('audit_log').operations).toEqual(expect.arrayContaining([
+      ['eq', 'patient_id', patientId], ['eq', 'entity_type', 'patient_tooth_states'], ['order', 'at'], ['order', 'id'],
+    ]))
+    db.started.length = 0
+    const dentist = await render(() => getPatientClinical(patientId), session('dentist'))
+    expect(dentist?.toothStateHistory).toEqual([])
+    expect(dentist?.toothStateHistoryAvailable).toBe(false)
+    expect(tables()).not.toContain('audit_log')
   })
 })

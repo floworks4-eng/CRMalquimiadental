@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { unstable_rethrow } from 'next/navigation'
 import { Modal, Field } from '../ui'
 import { createAppointment, getSlots } from '@/server/actions/agenda'
 import { createQuickPatient, listRecentPatientPicker, searchPatientPicker } from '@/server/actions/patients'
@@ -115,6 +116,9 @@ function Form({
             ) ??
             null,
         )
+    }).catch((error: unknown) => {
+      unstable_rethrow(error)
+      if (!stale) setLoaded({ key, slots: [], error: 'No pudimos cargar los horarios. Intenta de nuevo.' })
     })
     return () => {
       stale = true
@@ -128,6 +132,7 @@ function Form({
   }
   const submit = async (ev: React.FormEvent) => {
     ev.preventDefault()
+    if (saving) return
     const err: Record<string, string> = {}
     if (!patient) err.patient = 'Elige un paciente.'
     if (!treatmentId) err.treatment = 'Elige un tratamiento.'
@@ -137,25 +142,31 @@ function Form({
     if (Object.keys(err).length || !patient || !slot) return
     setSaving(true)
     setFormError('')
-    const r = await createAppointment({
-      patientId: patient.id,
-      treatmentId,
-      dentistId: slot.dentistId,
-      cabinetId: slot.cabinetId,
-      startsAt: slot.start,
-      source,
-      campaignId: source === 'campaign' ? campaignId : '',
-      notes,
-    })
-    setSaving(false)
-    if (r.ok) return onCreated()
-    setFormError(r.error.message)
-    setAlternatives(r.error.code === 'SLOT_TAKEN' && Array.isArray(r.error.data) ? (r.error.data as Slot[]) : [])
-    if (r.error.code === 'SLOT_TAKEN') {
-      setSlot(null)
-      setReload((n) => n + 1) // vuelve a pedir los horarios libres
+    try {
+      const r = await createAppointment({
+        patientId: patient.id,
+        treatmentId,
+        dentistId: slot.dentistId,
+        cabinetId: slot.cabinetId,
+        startsAt: slot.start,
+        source,
+        campaignId: source === 'campaign' ? campaignId : '',
+        notes,
+      })
+      if (r.ok) return onCreated()
+      setFormError(r.error.message)
+      setAlternatives(r.error.code === 'SLOT_TAKEN' && Array.isArray(r.error.data) ? (r.error.data as Slot[]) : [])
+      if (r.error.code === 'SLOT_TAKEN') {
+        setSlot(null)
+        setReload((n) => n + 1) // vuelve a pedir los horarios libres
+      }
+      for (const [k, v] of Object.entries(r.error.fields ?? {})) setErrors((e) => ({ ...e, [k]: v }))
+    } catch (error) {
+      unstable_rethrow(error)
+      setFormError('No pudimos confirmar la cita. Revisa la agenda antes de intentar de nuevo.')
+    } finally {
+      setSaving(false)
     }
-    for (const [k, v] of Object.entries(r.error.fields ?? {})) setErrors((e) => ({ ...e, [k]: v }))
   }
 
   const when = (s: Slot) => `${formatDayLong(localDate(s.start))} · ${formatTime(s.start)} · ${dentistName(s.dentistId)}`

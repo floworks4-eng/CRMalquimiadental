@@ -16,6 +16,7 @@ export async function loadDentalSession(appointmentId: string) {
     patient: data.patient,
     encounter: data.encounter,
     findings: data.findings,
+    toothStates: data.toothStates,
     canStart: data.canFinish && ['scheduled', 'confirmed', 'checked_in'].includes(data.appointment.status),
   }
 }

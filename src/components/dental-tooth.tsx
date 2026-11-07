@@ -1,3 +1,4 @@
+import { CONDITION_COLOR } from '@/lib/dental-colors'
 import type { ToothCondition } from '@/lib/domain/clinical'
 import { isUpper, kind, type ToothKind } from '@/lib/teeth'
 
@@ -42,7 +43,7 @@ export function DentalTooth({ tooth, condition, selected = false, upper, classNa
   const absent = condition === 'ausente'
   const implant = condition === 'implante'
   const outline = selected ? '#d7b56d' : '#a69f92'
-  const crownFill = condition === 'corona' ? '#e3b64e' : condition === 'protesis' ? '#c6b7ec' : '#fff5df'
+  const crownFill = condition ? CONDITION_COLOR[condition] : '#fff5df'
 
   return (
     <svg
@@ -77,7 +78,7 @@ export function DentalTooth({ tooth, condition, selected = false, upper, classNa
           </g>
         )}
         <path
-          d={anatomy.crown}
+          d={condition === 'fractura' ? 'M16 24 L24 20 L29 25 L35 18 L41 24 L48 20 L45 28 Q43 34 32 34 Q21 34 19 28 Z' : anatomy.crown}
           fill={absent ? 'none' : crownFill}
           stroke={outline}
           strokeWidth={selected ? 2 : 1.5}

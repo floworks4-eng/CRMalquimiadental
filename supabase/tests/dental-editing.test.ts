@@ -29,3 +29,18 @@ it('una atención cerrada no admite nuevos estados', async () => {
   await rows(db,'service', "update public.encounters set status='finished', finished_at=now() where id=$1",[encounter])
   await expect(save('caries')).rejects.toThrow('IMMUTABLE')
 })
+
+it('conserva crear/reemplazar/borrar estados directos en la auditoría autorizada solo al administrador', async () => {
+  for (const condition of ['caries', 'sano']) {
+    await rows(db, { uid: ID.dentistA }, 'select public.save_patient_tooth_state($1,$2,16,$3::public.tooth_condition,$4::text[],$5)', [ID.clinic, patient, condition, ['M'], ID.dentistA])
+  }
+  await rows(db, { uid: ID.dentistA }, 'delete from public.patient_tooth_states where patient_id=$1 and tooth_fdi=16', [patient])
+  expect(await rows(db, { uid: ID.dentistA }, 'select tooth_fdi from public.patient_tooth_states where patient_id=$1 and tooth_fdi=16', [patient])).toEqual([])
+  const sql = "select action, before->>'condition' as previous, after->>'condition' as current from public.audit_log where patient_id=$1 and entity_type='patient_tooth_states' order by id"
+  expect(await rows(db, { uid: ID.admin }, sql, [patient])).toEqual([
+    { action: 'patient_tooth_states.create', previous: null, current: 'caries' },
+    { action: 'patient_tooth_states.update', previous: 'caries', current: 'sano' },
+    { action: 'patient_tooth_states.delete', previous: 'sano', current: null },
+  ])
+  expect(await rows(db, { uid: ID.dentistA }, sql, [patient])).toEqual([])
+})

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { DentalWorkspace } from './dental-workspace'
 import type { Dentition } from '@/lib/teeth'
+import { latestDentalFindings } from '@/lib/domain/dental'
 import type { ToothMark } from './odontogram'
 import { listDentalAppointments, loadDentalSession } from '@/server/actions/dental'
 import { addFinding, removeFinding, startEncounter } from '@/server/actions/clinical'
@@ -68,7 +69,7 @@ export function DentalAtlas() {
   const marks = useMemo(() => {
     if (!appointmentId) return trialMarks
     const result: Record<number, ToothMark> = {}
-    for (const f of session?.findings ?? []) result[f.tooth] = { condition: f.condition, today: f.encounterId === session?.encounter?.id }
+    for (const f of latestDentalFindings(session?.findings ?? [], session?.toothStates)) result[f.tooth] = { condition: f.condition, today: f.encounterId === session?.encounter?.id }
     return result
   }, [session, appointmentId, trialMarks])
   const editable = session?.encounter?.status === 'in_progress'
@@ -208,7 +209,7 @@ export function DentalAtlas() {
         selected={selected}
         onSelect={(tooth) => {
           setSelected(tooth)
-          setSurfaces(session?.findings.filter((f) => f.tooth === tooth).at(-1)?.surfaces ?? [])
+          setSurfaces(latestDentalFindings(session?.findings ?? [], session?.toothStates).find((f) => f.tooth === tooth)?.surfaces ?? [])
         }}
         dentition={dentition}
         onDentitionChange={setDentition}

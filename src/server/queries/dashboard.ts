@@ -5,6 +5,7 @@ import { can } from '../auth/permissions'
 import { dayBoundsUtc, todayLaPaz } from '@/lib/domain/time'
 import { appointmentCards } from './agenda'
 import type { AppointmentCard } from './types'
+import { readPages } from './read-pages'
 
 export type Dashboard = {
   date: string
@@ -24,17 +25,20 @@ export async function getDashboard(): Promise<Dashboard> {
 
   const readMoney = async (): Promise<Dashboard['money']> => {
     if (!can(role, 'cash.read')) return null
-    const [{ data: tx }, { data: pending }, { data: open }] = await Promise.all([
-      supabase.from('transactions').select('amount_cents').gte('created_at', from).lt('created_at', to),
-      supabase.from('invoices').select('total_cents, paid_cents').in('status', ['issued', 'partially_paid']),
+    const message = 'No pudimos cargar el resumen de caja'
+    const [tx, pending, open] = await Promise.all([
+      readPages<{ amount_cents: number }>((a, b) => supabase.from('transactions').select('amount_cents')
+        .gte('created_at', from).lt('created_at', to).order('created_at').order('id').range(a, b), message),
+      readPages<{ total_cents: number; paid_cents: number }>((a, b) => supabase.from('invoices').select('total_cents, paid_cents')
+        .in('status', ['issued', 'partially_paid']).order('id').range(a, b), message),
       supabase.from('cash_sessions').select('id').eq('status', 'open').maybeSingle(),
     ])
-    const p = (pending ?? []) as { total_cents: number; paid_cents: number }[]
+    if (open.error) throw new Error(message)
     return {
-      incomeTodayCents: ((tx ?? []) as { amount_cents: number }[]).reduce((sum, t) => sum + t.amount_cents, 0),
-      pendingCount: p.length,
-      pendingCents: p.reduce((sum, i) => sum + i.total_cents - i.paid_cents, 0),
-      cashOpen: !!open,
+      incomeTodayCents: tx.reduce((sum, t) => sum + t.amount_cents, 0),
+      pendingCount: pending.length,
+      pendingCents: pending.reduce((sum, i) => sum + i.total_cents - i.paid_cents, 0),
+      cashOpen: !!open.data,
     }
   }
 

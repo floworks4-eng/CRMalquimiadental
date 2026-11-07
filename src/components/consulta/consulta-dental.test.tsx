@@ -45,6 +45,7 @@ const data: ConsultaData = {
     startedAt: '2026-11-01T14:00:00Z',
     finishedAt: null,
   },
+  toothStates: [],
   findings: [
     { tooth: 16, condition: 'corona', surfaces: ['M'], encounterId: 'encounter', recordedAt: '2026-11-01T14:00:00Z', notes: null },
   ],
@@ -111,4 +112,12 @@ describe('Marcación visual integrada a la consulta', () => {
     expect(actions.add).not.toHaveBeenCalled()
     expect(actions.refresh).toHaveBeenCalledTimes(1)
   })
+})
+
+
+it('shows newer patient-chart state in Consulta and preserves its surfaces when replacing it', async () => {
+  render(<ConsultaView data={{ ...data, toothStates: [{ tooth: 16, condition: 'sano', surfaces: ['O'], encounterId: '', recordedAt: '2026-11-02T14:00:00Z', notes: null }] }} />)
+  fireEvent.click(screen.getByRole('button', { name: /pieza 16: Sano/ }))
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Estado del diente' })).getByRole('button', { name: 'Caries' }))
+  await waitFor(() => expect(actions.add).toHaveBeenCalledWith({ patientId: 'patient', encounterId: 'encounter', tooth: 16, condition: 'caries', surfaces: ['O'] }))
 })

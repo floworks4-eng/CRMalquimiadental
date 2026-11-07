@@ -5,6 +5,7 @@ import { dayBoundsUtc, localDate, todayLaPaz } from '@/lib/domain/time'
 import { INVOICE_SELECT, mapInvoices, type InvoiceSummary } from './clinical'
 import type { PaymentMethod } from '@/lib/domain/clinical'
 import { summarizeCashMovements } from '@/lib/domain/cash-report'
+import { readPages } from './read-pages'
 
 export type CashMonth = {
   month: string
@@ -41,25 +42,15 @@ export async function getCashMonth(month: string): Promise<CashMonth> {
   }
   type InvRow = { total_cents: number; issued_at: string }
   type PendingRow = { id: string; number: string; total_cents: number; paid_cents: number; issued_at: string; patient: { full_name: string } | null }
-  const readPages = async <T,>(getPage: (start: number, end: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> => {
-    const result: T[] = []
-    for (let offset = 0; ; offset += 500) {
-      const { data, error } = await getPage(offset, offset + 499)
-      if (error) throw new Error('No pudimos cargar el reporte de caja')
-      const page = (data ?? []) as T[]
-      result.push(...page)
-      if (page.length < 500) break
-    }
-    return result
-  }
+  const message = 'No pudimos cargar el reporte de caja'
   const [tx, invoices, pending] = await Promise.all([
     readPages<TxRow>((a, b) => supabase.from('transactions')
       .select('id, kind, category, concept, amount_cents, method, created_at, patient:patients(full_name), invoice:invoices(number)')
-      .gte('created_at', from).lt('created_at', to).order('created_at').order('id').range(a, b)),
+      .gte('created_at', from).lt('created_at', to).order('created_at').order('id').range(a, b), message),
     readPages<InvRow>((a, b) => supabase.from('invoices').select('total_cents, issued_at')
-      .in('status', ['issued', 'partially_paid', 'paid']).gte('issued_at', from).lt('issued_at', to).order('issued_at').order('id').range(a, b)),
+      .in('status', ['issued', 'partially_paid', 'paid']).gte('issued_at', from).lt('issued_at', to).order('issued_at').order('id').range(a, b), message),
     readPages<PendingRow>((a, b) => supabase.from('invoices').select('id, number, total_cents, paid_cents, issued_at, patient:patients(full_name)')
-      .in('status', ['issued', 'partially_paid']).order('issued_at').order('id').range(a, b)),
+      .in('status', ['issued', 'partially_paid']).order('issued_at').order('id').range(a, b), message),
   ])
   const summary = summarizeCashMovements(tx)
   const today = todayLaPaz()
@@ -121,18 +112,24 @@ export async function getCashDay(date: string): Promise<CashDay> {
   await requireCapability('cash.read')
   const supabase = await createClient()
   const [from, to] = dayBoundsUtc(date)
-  const [{ data: open }, { data: tx }, { data: pending }, { data: recent }] = await Promise.all([
+  const message = 'No pudimos cargar la caja del día'
+  const [openResult, tx, pending, recentResult] = await Promise.all([
     supabase.from('cash_sessions').select(SESSION_SELECT).eq('status', 'open').maybeSingle(),
-    supabase.from('transactions')
+    readPages((a, b) => supabase.from('transactions')
       .select('id, kind, category, concept, amount_cents, method, created_at, payment_id, by:profiles(full_name), patient:patients(id, full_name), payment:payments(status)')
-      .gte('created_at', from).lt('created_at', to).order('created_at', { ascending: false }),
-    supabase.from('invoices').select(INVOICE_SELECT).in('status', ['issued', 'partially_paid']).order('issued_at', { ascending: false }).limit(100),
+      .gte('created_at', from).lt('created_at', to).order('created_at', { ascending: false }).order('id').range(a, b), message),
+    readPages((a, b) => supabase.from('invoices').select(INVOICE_SELECT).in('status', ['issued', 'partially_paid'])
+      .order('issued_at', { ascending: false }).order('id').range(a, b), message),
     supabase.from('cash_sessions').select(SESSION_SELECT).eq('status', 'closed').order('closed_at', { ascending: false }).limit(10),
   ])
+  if (openResult.error || recentResult.error) throw new Error(message)
+  const open = openResult.data
+  const recent = recentResult.data
   const session = open ? toSession(open as unknown as SessionRow) : null
   let expectedCashCents: number | null = null
   if (session) {
-    const { data } = await supabase.rpc('cash_expected', { p_session: session.id })
+    const { data, error } = await supabase.rpc('cash_expected', { p_session: session.id })
+    if (error) throw new Error(message)
     expectedCashCents = (data as number | null) ?? null
   }
   const movements = ((tx ?? []) as unknown as {

@@ -29,6 +29,7 @@ type Props = Omit<DentalRenderProps, 'onSelect' | 'onChooseTooth'> &
 export function DentalWorkspace(props: Props) {
   const [presenting, setPresenting] = useState(false)
   const [editingTooth, setEditingTooth] = useState<number>()
+  const surfacesDirty = useRef(false)
   const [error, setError] = useState<string>()
   const [notice, setNotice] = useState<string>()
   const [saving, startSaving] = useTransition()
@@ -59,12 +60,13 @@ export function DentalWorkspace(props: Props) {
   function selectTooth(tooth: number | undefined) {
     if (saving) return
     props.onSelect(tooth)
+    surfacesDirty.current = false
     setError(undefined)
     setNotice(undefined)
     setEditingTooth(props.onMark && tooth ? tooth : undefined)
   }
 
-  function save(condition?: ToothCondition) {
+  function save(condition?: ToothCondition, closeAfter = false) {
     if (!editingTooth || saving || props.disabled) return
     const tooth = editingTooth
     const mutate = condition ? () => props.onMark?.(tooth, condition) : () => props.onClear?.(tooth)
@@ -77,6 +79,8 @@ export function DentalWorkspace(props: Props) {
           setError(message)
           return
         }
+        surfacesDirty.current = false
+        if (closeAfter) setEditingTooth(undefined)
         setNotice(condition ? `${props.temporary ? "Prueba aplicada" : "Estado guardado"}: ${CONDITION_LABEL[condition]} · pieza ${tooth}` : `${props.temporary ? "Marca de prueba" : "Marca de hoy"} quitada de la pieza ${tooth}`)
       } catch {
         setError('No se pudo guardar. Revisa tu conexión y vuelve a intentarlo.')
@@ -125,12 +129,15 @@ export function DentalWorkspace(props: Props) {
           temporary={props.temporary}
           error={error}
           onClose={() => {
-            if (!saving) setEditingTooth(undefined)
+            if (saving) return
+            const condition = editingTooth ? optimisticMarks[editingTooth]?.condition : undefined
+            if (surfacesDirty.current && condition) save(condition, true)
+            else setEditingTooth(undefined)
           }}
           onMark={(condition) => save(condition)}
           onClear={props.onClear ? () => save() : undefined}
           surfaces={props.surfaces}
-          onSurfacesChange={props.onSurfacesChange}
+          onSurfacesChange={props.onSurfacesChange ? (surfaces) => { surfacesDirty.current = true; props.onSurfacesChange?.(surfaces) } : undefined}
         />
       )}
       </div>

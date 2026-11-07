@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { unstable_rethrow } from 'next/navigation'
 import { Modal, Field } from '../ui'
 import { SourceChip, StatusChip } from '../chips'
 import { changeAppointmentStatus, getSlots, rescheduleAppointment } from '@/server/actions/agenda'
@@ -38,10 +39,14 @@ function Body({ a, role, onChanged }: { a: AppointmentCard; role: Role; onChange
   const run = async (to: AppointmentStatus, text?: string) => {
     setPending(true)
     setError('')
-    const r = await changeAppointmentStatus({ id: a.id, to, reason: text, expectedUpdatedAt: a.updatedAt })
-    setPending(false)
-    if (r.ok) return onChanged()
-    setError(r.error.message)
+    try {
+      const r = await changeAppointmentStatus({ id: a.id, to, reason: text, expectedUpdatedAt: a.updatedAt })
+      if (r.ok) return onChanged()
+      setError(r.error.message)
+    } catch (error) {
+      unstable_rethrow(error)
+      setError('No pudimos actualizar la cita. Revisa la agenda antes de intentar de nuevo.')
+    } finally { setPending(false) }
   }
 
   return (
@@ -95,39 +100,53 @@ function Body({ a, role, onChanged }: { a: AppointmentCard; role: Role; onChange
 function Reschedule({ a, onBack, onDone }: { a: AppointmentCard; onBack: () => void; onDone: () => void }) {
   const [date, setDate] = useState(localDate(a.startsAt) < todayLaPaz() ? todayLaPaz() : localDate(a.startsAt))
   const [loaded, setLoaded] = useState<{ date: string; slots: Slot[]; error?: string } | null>(null)
-  const [pick, setPick] = useState<Slot | null>(null)
+  const [pick, setPick] = useState<(Slot & { date: string }) | null>(null)
+  const requestId = useRef(0)
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [started, setStarted] = useState(false)
 
   const load = async (d: string) => {
+    const id = ++requestId.current
     setPick(null)
+    setLoaded(null)
     setStarted(true)
     if (!a.treatment) return setLoaded({ date: d, slots: [], error: 'Esta cita no tiene tratamiento. Cancélala y crea una nueva.' })
-    const r = await getSlots({ treatmentId: a.treatment.id, from: d, to: d, dentistId: a.dentist.id })
-    setLoaded({ date: d, slots: r.ok ? r.data : [], error: r.ok ? undefined : r.error.message })
+    try {
+      const r = await getSlots({ treatmentId: a.treatment.id, from: d, to: d, dentistId: a.dentist.id })
+      if (id === requestId.current) setLoaded({ date: d, slots: r.ok ? r.data : [], error: r.ok ? undefined : r.error.message })
+    } catch (error) {
+      unstable_rethrow(error)
+      if (id === requestId.current) setLoaded({ date: d, slots: [], error: 'No pudimos cargar los horarios. Intenta de nuevo.' })
+    }
   }
   const save = async () => {
-    if (!pick) return setError('Elige un horario.')
+    if (pending) return
+    if (!pick || pick.date !== date || loaded?.date !== date) return setError('Elige un horario.')
     setPending(true)
-    const r = await rescheduleAppointment({ id: a.id, startsAt: pick.start, cabinetId: pick.cabinetId, expectedUpdatedAt: a.updatedAt })
-    setPending(false)
-    if (r.ok) return onDone()
-    setError(r.error.message)
-    load(date)
+    setError('')
+    try {
+      const r = await rescheduleAppointment({ id: a.id, startsAt: pick.start, cabinetId: pick.cabinetId, expectedUpdatedAt: a.updatedAt })
+      if (r.ok) return onDone()
+      setError(r.error.message)
+      await load(date)
+    } catch (error) {
+      unstable_rethrow(error)
+      setError('No pudimos reprogramar la cita. Revisa la agenda antes de intentar de nuevo.')
+    } finally { setPending(false) }
   }
   return (
     <div className="space-y-3 border-t border-white/8 pt-4">
       <div className="flex flex-wrap items-end gap-2">
-        <Field label="Nueva fecha">{(id) => <input id={id} type="date" min={todayLaPaz()} className="field" value={date} onChange={(e) => { setDate(e.target.value); setLoaded(null); setStarted(false) }} />}</Field>
-        <button type="button" className="btn btn-secondary" onClick={() => load(date)}>Ver horarios</button>
+        <Field label="Nueva fecha">{(id) => <input id={id} type="date" min={todayLaPaz()} className="field" value={date} disabled={pending} onChange={(e) => { requestId.current++; setDate(e.target.value); setPick(null); setLoaded(null); setStarted(false); setError('') }} />}</Field>
+        <button type="button" className="btn btn-secondary" disabled={pending || !date} onClick={() => load(date)}>Ver horarios</button>
       </div>
       {started && (loaded?.date === date ? (
         loaded.error ? <p role="alert" className="text-sm text-bad">{loaded.error}</p> :
         loaded.slots.length === 0 ? <p className="text-sm text-muted">No hay horarios libres ese día con {a.dentist.fullName}.</p> : (
           <div className="grid max-h-40 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-6">
             {loaded.slots.map((s) => (
-              <button key={s.start} type="button" aria-pressed={pick?.start === s.start} onClick={() => { setPick(s); setError('') }}
+              <button key={s.start} type="button" disabled={pending} aria-pressed={pick?.start === s.start} onClick={() => { setPick({ ...s, date }); setError('') }}
                 className={`num rounded-xl border px-2 py-1.5 text-sm ${pick?.start === s.start ? 'border-azure bg-azure/15 text-bone' : 'border-white/10 text-muted hover:border-white/30'}`}>{formatTime(s.start)}</button>
             ))}
           </div>
@@ -136,7 +155,7 @@ function Reschedule({ a, onBack, onDone }: { a: AppointmentCard; onBack: () => v
       {error && <p role="alert" className="text-sm text-bad">{error}</p>}
       <div className="flex justify-end gap-2">
         <button type="button" className="btn btn-ghost" onClick={onBack}>Volver</button>
-        <button className="btn btn-primary" disabled={pending || !pick} onClick={save}>Guardar cambio</button>
+        <button className="btn btn-primary" disabled={pending || !pick || pick.date !== date || loaded?.date !== date} onClick={save}>Guardar cambio</button>
       </div>
     </div>
   )

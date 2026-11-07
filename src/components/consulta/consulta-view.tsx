@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { AlertTriangle, CheckCircle2, Play, Plus, Trash2, Wallet } from 'lucide-react'
 import { Field, Modal } from '../ui'
 import { StatusChip } from '../chips'
+import { latestDentalFindings } from '@/lib/domain/dental'
 import type { ToothMark } from '../odontogram'
 import { DentalWorkspace } from '../dental-workspace'
 import {
@@ -140,9 +141,9 @@ function InProgress({ data, pending, run }: { data: ConsultaData; pending: boole
   // Último hallazgo por pieza (historia + hoy).
   const marks = useMemo(() => {
     const m: Record<number, ToothMark> = {}
-    for (const f of data.findings) m[f.tooth] = { condition: f.condition, today: f.encounterId === e.id }
+    for (const f of latestDentalFindings(data.findings, data.toothStates)) m[f.tooth] = { condition: f.condition, today: f.encounterId === e.id }
     return m
-  }, [data.findings, e.id])
+  }, [data.findings, data.toothStates, e.id])
   const toothHistory = selected ? data.findings.filter((f) => f.tooth === selected) : []
   const today = data.plan.filter((i) => i.status === 'in_progress')
   const later = data.plan.filter((i) => i.status === 'planned' || i.status === 'accepted')
@@ -166,7 +167,7 @@ function InProgress({ data, pending, run }: { data: ConsultaData; pending: boole
 
   const handleSelectTooth = (n: number | undefined) => {
     setSelected(n)
-    setSurfaces(n ? (data.findings.find((f) => f.tooth === n && f.encounterId === e.id)?.surfaces ?? []) : [])
+    setSurfaces(n ? (latestDentalFindings(data.findings, data.toothStates).find((f) => f.tooth === n)?.surfaces ?? []) : [])
     if (n !== undefined) {
       setDentition(dentitionForTooth(n))
     }

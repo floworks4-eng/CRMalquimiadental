@@ -42,3 +42,15 @@ it('permite marcar el modelo sin cita con un aviso de prueba y sin escribir en l
   await screen.findByText('obturacion')
   expect(api.add).not.toHaveBeenCalled()
 })
+
+
+it('loads the newest dental state across patient chart and encounter findings', async () => {
+  api.load.mockResolvedValue({ patient: { id: 'p1', fullName: 'Ana' }, encounter: { id: 'e1', status: 'in_progress' },
+    findings: [{ tooth: 16, condition: 'caries', encounterId: 'e1', recordedAt: '2026-11-01T14:00:00Z' }],
+    toothStates: [{ tooth: 16, condition: 'sano', encounterId: '', recordedAt: '2026-11-02T14:00:00Z' }], canStart: false })
+  render(<DentalAtlas />)
+  await screen.findByRole('option', { name: /Ana/ })
+  fireEvent.change(screen.getByLabelText('Paciente y atención'), { target: { value: 'a1' } })
+  await screen.findByText('sano')
+  expect(screen.queryByText('caries')).toBeNull()
+})

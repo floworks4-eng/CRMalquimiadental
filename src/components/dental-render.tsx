@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { AlertCircle, ChevronDown, Minus, Plus, RotateCcw, Rotate3d } from 'lucide-react'
+import { CONDITION_COLOR } from '@/lib/dental-colors'
 import { CONDITION_LABEL, type ToothCondition } from '@/lib/domain/clinical'
 import { getToothInfo, type Dentition } from '@/lib/teeth'
 import type { createDentalScene, DentalLayers, DentalSceneState } from '@/lib/dental-scene'
@@ -42,7 +43,7 @@ export const PATIENT_EXPLANATIONS: Record<ToothCondition, string> = {
   endodoncia:
     'Se registró una endodoncia. Este tratamiento trabaja dentro del diente, donde está la pulpa, y en los conductos de sus raíces.',
   corona: 'Se registró una corona: una cubierta que protege o reconstruye la parte visible del diente.',
-  ausente: 'Esta pieza está registrada como ausente. Por eso no aparece en el modelo.',
+  ausente: 'Esta pieza está registrada como ausente. Su contorno tenue permite seleccionarla y corregir el registro.',
   sellante: 'Se registró un sellante: una capa protectora en los surcos de la superficie de masticación.',
   implante: 'Se registró un implante. Reemplaza la raíz de una pieza ausente y permite sostener una restauración.',
   protesis: 'Se registró una prótesis para reemplazar o restaurar piezas dentales.',
@@ -162,7 +163,7 @@ export function DentalRender({ marks, selected, onSelect, dentition = 'permanent
 
       <div className="dental-view-choices" role="group" aria-label="Qué quieres mostrar">
         {(Object.keys(VIEWS) as View[]).map((key) => (
-          <button key={key} type="button" aria-pressed={view === key} onClick={() => chooseView(key)}>
+          <button key={key} type="button" aria-pressed={view === key} onClick={() => key === 'mouth' ? reset() : chooseView(key)}>
             {VIEWS[key].label}
           </button>
         ))}
@@ -182,6 +183,11 @@ export function DentalRender({ marks, selected, onSelect, dentition = 'permanent
         </div>
       ) : null}
 
+      <ul aria-label="Colores de hallazgos" className="flex flex-wrap gap-x-3 gap-y-1 px-4 pb-3 text-xs text-muted">
+        {Object.entries(marks).filter(([tooth]) => getToothInfo(Number(tooth))?.in3DModel).map(([, mark]) => mark.condition).filter((condition, i, all) => all.indexOf(condition) === i).map((condition) => (
+          <li key={condition} className="flex items-center gap-1.5"><span aria-hidden className="size-2.5 rounded-full" style={{ backgroundColor: CONDITION_COLOR[condition] }} />{CONDITION_LABEL[condition]}</li>
+        ))}
+      </ul>
       <div className="dental-render__stage" aria-busy={status === 'loading'}>
         <div ref={hostRef} className={`dental-canvas ${status === 'error' ? 'invisible' : ''}`} />
         {status === 'loading' && (

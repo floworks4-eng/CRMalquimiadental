@@ -11,9 +11,12 @@ import type { AppointmentCard } from './types'
 import type { InvoiceStatus, PlanStatus, ToothCondition } from '@/lib/domain/clinical'
 
 // Datos clinicos: solo para admin y el odontologo del paciente (RLS: can_read_clinical). Recepcion nunca llega aca.
+import { readPages } from './read-pages'
+import type { DentalFinding, DentalStateEvent, DentalStateSnapshot } from '@/lib/domain/dental'
+
 const UUID = /^[0-9a-f-]{36}$/
 
-export type Finding = { tooth: number; condition: ToothCondition; surfaces: string[]; encounterId: string; recordedAt: string; notes: string | null }
+export type Finding = DentalFinding
 export type PlanItem = {
   id: string; treatmentId: string; treatmentName: string; tooth: number | null; surfaces: string[]; status: PlanStatus
   priceCents: number; encounterId: string | null; completedEncounterId: string | null; createdAt: string
@@ -32,10 +35,34 @@ export type EncounterView = {
 type Supabase = SupabaseClient
 
 export async function findingsOf(supabase: Supabase, patientId: string): Promise<Finding[]> {
-  const { data } = await supabase.from('tooth_findings').select('tooth_fdi, condition, surfaces, encounter_id, recorded_at, notes')
-    .eq('patient_id', patientId).order('recorded_at')
-  return ((data ?? []) as { tooth_fdi: number; condition: ToothCondition; surfaces: string[]; encounter_id: string; recorded_at: string; notes: string | null }[])
-    .map((f) => ({ tooth: f.tooth_fdi, condition: f.condition, surfaces: f.surfaces, encounterId: f.encounter_id, recordedAt: f.recorded_at, notes: f.notes }))
+  const data = await readPages<{ tooth_fdi: number; condition: ToothCondition; surfaces: string[]; encounter_id: string; recorded_at: string; notes: string | null }>(
+    (from, to) => supabase.from('tooth_findings').select('tooth_fdi, condition, surfaces, encounter_id, recorded_at, notes')
+      .eq('patient_id', patientId).order('recorded_at').order('id').range(from, to),
+    'No pudimos cargar los hallazgos dentales.',
+  )
+  return data.map((f) => ({ tooth: f.tooth_fdi, condition: f.condition, surfaces: f.surfaces, encounterId: f.encounter_id, recordedAt: f.recorded_at, notes: f.notes }))
+}
+
+export async function toothStatesOf(supabase: Supabase, patientId: string): Promise<Finding[]> {
+  const { data, error } = await supabase.from('patient_tooth_states')
+    .select('tooth_fdi, condition, surfaces, updated_at, notes').eq('patient_id', patientId).order('updated_at').order('id')
+  if (error) throw new Error('No pudimos cargar el estado dental.')
+  return ((data ?? []) as { tooth_fdi: number; condition: ToothCondition; surfaces: string[]; updated_at: string; notes: string | null }[])
+    .map((f) => ({ tooth: f.tooth_fdi, condition: f.condition, surfaces: f.surfaces, encounterId: '', recordedAt: f.updated_at, notes: f.notes ?? null }))
+}
+
+type AuditState = { tooth_fdi: number; condition: ToothCondition; surfaces: string[] }
+const auditSnapshot = (value: AuditState | null): DentalStateSnapshot | null => value
+  ? { tooth: value.tooth_fdi, condition: value.condition, surfaces: value.surfaces } : null
+
+async function toothStateHistoryOf(supabase: Supabase, patientId: string): Promise<DentalStateEvent[]> {
+  const rows = await readPages<{ id: number | string; at: string; before: AuditState | null; after: AuditState | null }>(
+    (from, to) => supabase.from('audit_log').select('id, at, before, after')
+      .eq('patient_id', patientId).eq('entity_type', 'patient_tooth_states').order('at').order('id').range(from, to),
+    'No pudimos cargar el historial dental.',
+  )
+  // Project only dental fields; never return raw audit records to the browser.
+  return rows.map((r) => ({ id: `audit:${r.id}`, recordedAt: r.at, before: auditSnapshot(r.before), after: auditSnapshot(r.after) }))
 }
 
 export async function planOf(supabase: Supabase, patientId: string): Promise<PlanItem[]> {
@@ -81,6 +108,7 @@ export type ConsultaData = {
   anamnesis: AnamnesisView | null
   encounter: EncounterView | null
   findings: Finding[]
+  toothStates: Finding[]
   plan: PlanItem[]
   treatments: TreatmentOption[]
   supplies: SupplyNeed[]
@@ -98,13 +126,14 @@ export const getConsulta = cache(async (appointmentId: string): Promise<Consulta
     const [appointment] = await appointmentCards(supabase, (q) => q.eq('id', appointmentId))
     if (!appointment?.patient) return null
     const patientId = appointment.patient.id
-    const [{ data: p }, anamnesis, findings, plan] = await Promise.all([
+    const [{ data: p }, anamnesis, findings, toothStates, plan] = await Promise.all([
       supabase.from('patients').select('id, full_name, birth_date, phone_e164').eq('id', patientId).maybeSingle(),
       getCurrentAnamnesis(patientId),
       findingsOf(supabase, patientId),
+      toothStatesOf(supabase, patientId),
       planOf(supabase, patientId),
     ])
-    return p ? { appointment, p, anamnesis, findings, plan } : null
+    return p ? { appointment, p, anamnesis, findings, toothStates, plan } : null
   }
   // El encuentro y el catálogo no necesitan el patientId resuelto por la cita.
   const [patientResult, encounterResult, treatmentResult] = await Promise.allSettled([
@@ -119,7 +148,7 @@ export const getConsulta = cache(async (appointmentId: string): Promise<Consulta
   if (treatmentResult.status === 'rejected') throw treatmentResult.reason
   const { data: e } = encounterResult.value
   const treatments = treatmentResult.value
-  const { appointment, p, anamnesis, findings, plan } = patientData
+  const { appointment, p, anamnesis, findings, toothStates, plan } = patientData
   const enc = e as { id: string; status: EncounterView['status']; chief_complaint: string | null; notes: string | null; started_at: string; finished_at: string | null } | null
   const encounter: EncounterView | null = enc
     ? { id: enc.id, status: enc.status, chiefComplaint: enc.chief_complaint, notes: enc.notes, startedAt: enc.started_at, finishedAt: enc.finished_at }
@@ -164,7 +193,7 @@ export const getConsulta = cache(async (appointmentId: string): Promise<Consulta
   return {
     appointment,
     patient: { id: pr.id, fullName: pr.full_name, birthDate: pr.birth_date, phone: pr.phone_e164 },
-    anamnesis, encounter, findings,
+    anamnesis, encounter, findings, toothStates,
     // Lo pendiente del paciente + lo que se hizo en esta atencion.
     plan: plan.filter((i) => i.status !== 'done' || (encounter && i.completedEncounterId === encounter.id)),
     treatments, supplies, invoice, addenda,
@@ -183,13 +212,15 @@ export type AnamnesisVersion = { id: string; version: number; submittedAt: strin
 export type PatientFile = { id: string; kind: 'photo' | 'document'; mime: string; sizeBytes: number; createdAt: string; url: string | null }
 export type PatientClinical = {
   anamnesis: AnamnesisView | null; findings: Finding[]; toothStates: Finding[]; pending: PlanItem[]; history: EncounterHistoryItem[]
+  toothStateHistory: DentalStateEvent[]; toothStateHistoryAvailable: boolean
   notes: ClinicalNote[]; anamnesisVersions: AnamnesisVersion[]; files: PatientFile[]
 }
 
 /** Historia clinica completa de la ficha: anamnesis y sus versiones, odontograma, plan, atenciones, notas e historial importado. */
 export const getPatientClinical = cache(async (patientId: string): Promise<PatientClinical | null> => {
   if (!UUID.test(patientId)) return null
-  await requireCapability('patients.read_clinical')
+  const session = await requireCapability('patients.read_clinical')
+  const toothStateHistoryAvailable = can(session.member.role, 'audit.read')
   const supabase = await createClient()
   const readFiles = async (): Promise<PatientFile[]> => {
     const { data: files } = await supabase.from('patient_files').select('id, kind, mime, size_bytes, storage_path, created_at').eq('patient_id', patientId).order('created_at', { ascending: false })
@@ -212,10 +243,11 @@ export const getPatientClinical = cache(async (patientId: string): Promise<Patie
     }))
     return signedBatches.flat()
   }
-  const [anamnesis, findings, toothRows, plan, { data: enc }, { data: notes }, { data: versions }, filesWithUrls] = await Promise.all([
+  const [anamnesis, findings, toothStates, toothStateHistory, plan, { data: enc }, { data: notes }, { data: versions }, filesWithUrls] = await Promise.all([
     getCurrentAnamnesis(patientId),
     findingsOf(supabase, patientId),
-    supabase.from('patient_tooth_states').select('tooth_fdi, condition, surfaces, updated_at').eq('patient_id', patientId).order('updated_at'),
+    toothStatesOf(supabase, patientId),
+    toothStateHistoryAvailable ? toothStateHistoryOf(supabase, patientId) : Promise.resolve([]),
     planOf(supabase, patientId),
     supabase.from('encounters')
       .select('id, appointment_id, status, chief_complaint, notes, started_at, dentist:profiles!encounters_dentist_id_fkey(full_name), invoice:invoices(number, total_cents, paid_cents), addenda:encounter_addenda(reason, notes, created_at, author:profiles(full_name))')
@@ -224,8 +256,6 @@ export const getPatientClinical = cache(async (patientId: string): Promise<Patie
     supabase.from('anamnesis_versions').select('id, version, submitted_at, source, allergies, allergy_other, conditions, medications, author:profiles!anamnesis_versions_submitted_by_fkey(full_name)').eq('patient_id', patientId).order('version', { ascending: false }),
     readFiles(),
   ])
-  const toothStates: Finding[] = ((toothRows.data ?? []) as { tooth_fdi: number; condition: ToothCondition; surfaces: string[]; updated_at: string }[])
-    .map((x) => ({ tooth: x.tooth_fdi, condition: x.condition, surfaces: x.surfaces, encounterId: '', recordedAt: x.updated_at, notes: null }))
   const itemsByEncounter = new Map<string, string[]>()
   for (const item of plan) {
     if (item.completedEncounterId === null) continue
@@ -257,7 +287,7 @@ export const getPatientClinical = cache(async (patientId: string): Promise<Patie
   })
   const clean = (l: string[] | null, none: string) => (l ?? []).filter((x) => x !== none)
   return {
-    anamnesis, findings, toothStates, pending: plan.filter((i) => i.status !== 'done'), history,
+    anamnesis, findings, toothStates, toothStateHistory, toothStateHistoryAvailable, pending: plan.filter((i) => i.status !== 'done'), history,
     notes: ((notes ?? []) as unknown as { id: string; noted_on: string; body: string; source: 'staff' | 'import'; created_at: string; author: { full_name: string } | null }[])
       .map((n) => ({ id: n.id, notedOn: n.noted_on, body: n.body, source: n.source, createdAt: n.created_at, author: n.author?.full_name ?? '—' })),
     anamnesisVersions: ((versions ?? []) as unknown as {
