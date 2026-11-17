@@ -54,7 +54,12 @@ async function ClinicalSections({ patient, role }: { patient: PatientDetail; rol
     <>
       {clinicalData && <AnamnesisCard patientId={patient.id} anamnesis={clinicalData.anamnesis} />}
       {clinicalData && (
-        <PatientClinicalView patientId={patient.id} data={clinicalData} child={!!patient.birthDate && ageYears(patient.birthDate) < 12} />
+        <PatientClinicalView
+          patientId={patient.id}
+          patientName={patient.fullName}
+          data={clinicalData}
+          child={!!patient.birthDate && ageYears(patient.birthDate) < 12}
+        />
       )}
       {can(role, 'billing.read') && <PatientInvoices invoices={invoices} canCharge={can(role, 'cash.read')} />}
     </>
