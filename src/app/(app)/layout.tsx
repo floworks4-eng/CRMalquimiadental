@@ -17,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const items: NavItem[] = [
     { href: '/inicio', label: 'Mi día', icon: 'inicio' },
     { href: '/agenda', label: 'Agenda', icon: 'agenda' },
+    ...(can(r, 'encounters.read') ? [{ href: '/consulta', label: 'Atención', icon: 'consulta' as const }] : []),
     { href: '/pacientes', label: 'Pacientes', icon: 'pacientes' },
     ...(can(r, 'encounters.read') ? [{ href: '/dientes', label: 'Modelo dental 3D', icon: 'dientes' as const }] : []),
     ...(can(r, 'cash.read') ? [{ href: '/caja', label: 'Caja', icon: 'caja' as const }] : []),

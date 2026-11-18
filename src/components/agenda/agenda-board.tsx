@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Plus, CalendarDays, List, Search, MoreHorizo
 import { StatusChip } from '../chips'
 import { Avatar, PageHeader } from '../ui'
 import type { DialogPreset } from './appointment-dialog'
+import { CareFlowBoard } from './care-flow-board'
 import { ClinicCalendar } from './clinic-calendar'
 import { addDays, formatTime, localDate, todayLaPaz, zonedToUtcIso } from '@/lib/domain/time'
 import { calendarDateLabel, moveMonth, startOfWeek, toCalendarEvent, type AgendaView, type CalendarCreateSlot } from '@/lib/domain/calendar'
@@ -64,8 +65,12 @@ export function AgendaBoard({
   const linked = selectedId ? (board.appointments.find((a) => a.id === selectedId) ?? null) : null
   const currentAppointment = selected ?? linked
   const currentFilter = FILTERS.find((value) => value.id === filter) ?? FILTERS[0]
+  const search = normalize(query)
   const appointments = board.appointments.filter(
-    (a) => (!dentist || a.dentist.id === dentist) && normalize(a.patient?.fullName ?? 'Paciente').includes(normalize(query)),
+    (a) =>
+      (role !== 'dentist' || a.dentist.id === userId) &&
+      (!dentist || a.dentist.id === dentist) &&
+      normalize(a.patient?.fullName ?? 'Paciente').includes(search),
   )
   const dayAppointments = appointments.filter((a) => localDate(a.startsAt) === board.date)
   const list = dayAppointments.filter((a) => !currentFilter.statuses || currentFilter.statuses.includes(a.status))
@@ -112,7 +117,7 @@ export function AgendaBoard({
       () => {
         if (document.visibilityState === 'visible') router.refresh()
       },
-      view === 'list' ? 10_000 : 30_000,
+      view === 'day' || view === 'list' ? 10_000 : 30_000,
     )
     return () => clearInterval(timer)
   }, [router, view])
@@ -135,6 +140,11 @@ export function AgendaBoard({
   return (
     <div className="fade-in">
       <PageHeader title="Agenda" eyebrow="Tus citas, las llegadas y la atención del equipo en un solo lugar.">
+        {can(role, 'encounters.read') && (
+          <Link href={`/consulta?date=${board.date}`} className="btn btn-secondary">
+            Cola de consulta
+          </Link>
+        )}
         {canCreate && (
           <button className="btn btn-primary" onClick={() => newAt({ date: board.date < todayLaPaz() ? todayLaPaz() : board.date })}>
             <Plus size={18} aria-hidden />
@@ -245,6 +255,11 @@ export function AgendaBoard({
                 </select>
               </label>
             )}
+          </div>
+        )}
+        {view === 'day' && (
+          <div className="border-b border-white/8 p-3 sm:px-5">
+            <CareFlowBoard key={board.date} appointments={dayAppointments} role={role} userId={userId} />
           </div>
         )}
         {view !== 'list' &&

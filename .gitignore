@@ -15,3 +15,8 @@ test-results
 .playwright-cli/
 output/playwright/
 supabase/.temp/
+
+# Local generated artifacts
+.pytest_cache/
+output/pdf/
+tmp/

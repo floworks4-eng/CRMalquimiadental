@@ -1,21 +1,54 @@
 'use client'
 /* eslint-disable @next/next/no-img-element -- Signed private clinical images must not pass through a shared image optimizer. */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Paperclip, Send, Mic, Square, Plus, FileText, Download, Eye, X, Check, LockKeyhole } from 'lucide-react'
+import {
+  Paperclip,
+  Send,
+  Mic,
+  Square,
+  Plus,
+  FileText,
+  Download,
+  Eye,
+  X,
+  Check,
+  LockKeyhole,
+  Camera,
+  Image as ImageIcon,
+  RotateCcw,
+} from 'lucide-react'
 import { todayLaPaz } from '@/lib/domain/time'
 import { FILE_CATEGORY_LABEL, type JournalData, type JournalFile, type FileCategory } from '@/lib/domain/journal'
 import type { PatientClinical } from '@/server/queries/clinical'
 import { Modal } from '../ui'
+import {
+  clipboardFiles,
+  DOCUMENT_ACCEPT,
+  hasDraggedFiles,
+  PHOTO_ACCEPT,
+  stageAttachment,
+  uploadAttachment,
+  useJournalRecorder,
+  type PendingAttachment,
+} from './session-journal-attachments'
 import './session-journal.css'
 
 const empty: JournalData = { sessions: [], messages: [], files: [], aiEnabled: false }
+const JOURNAL_CHANGED = 'alquimia:journal-changed'
 const date = (value: string) =>
   new Date(value.length === 10 ? `${value}T12:00:00-04:00` : value).toLocaleDateString('es-BO', { timeZone: 'America/La_Paz' })
 const time = (value: string) =>
   new Date(value).toLocaleTimeString('es-BO', { timeZone: 'America/La_Paz', hour: '2-digit', minute: '2-digit' })
 
-export function SessionJournal({ patientId, patientName, data }: { patientId: string; patientName?: string; data: PatientClinical }) {
+type JournalProps = { patientId: string; patientName?: string; data: PatientClinical }
+type LocalAttachment = PendingAttachment & { previewUrl?: string }
+
+export function SessionJournal(props: JournalProps) {
+  return <PatientJournal key={props.patientId} {...props} />
+}
+
+function PatientJournal({ patientId, patientName, data }: JournalProps) {
   const base = `/api/patients/${patientId}/journal`
   const [journal, setJournal] = useState<JournalData>(empty),
     [selected, setSelected] = useState(''),
@@ -30,51 +63,139 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
   const [creating, setCreating] = useState(false),
     [title, setTitle] = useState(''),
     [sessionDate, setSessionDate] = useState(todayLaPaz())
-  const [category, setCategory] = useState<FileCategory>('radiograph'),
-    [recording, setRecording] = useState(false)
+  const [pending, setPending] = useState<LocalAttachment[]>([])
+  const [picking, setPicking] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState<number>()
+  const [recordingError, setRecordingError] = useState('')
+  const [refreshRequired, setRefreshRequired] = useState(false)
   const [aiFile, setAiFile] = useState<JournalFile>(),
     [consent, setConsent] = useState(false)
   const previewRef = useRef<HTMLDialogElement>(null)
-  const input = useRef<HTMLInputElement>(null),
-    recorder = useRef<MediaRecorder | null>(null),
-    stream = useRef<MediaStream | null>(null),
-    timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
-    mounted = useRef(true)
+  const log = useRef<HTMLDivElement>(null)
+  const cameraInput = useRef<HTMLInputElement>(null)
+  const galleryInput = useRef<HTMLInputElement>(null)
+  const documentInput = useRef<HTMLInputElement>(null)
+  const dragDepth = useRef(0)
+  const attachmentId = useRef(0)
+  const objectUrls = useRef(new Map<number, string>())
+  const working = useRef(false)
+  const lifecycle = useRef<AbortController | null>(null)
+  const reads = useRef(Promise.resolve())
+  const currentJournal = useRef(empty)
+  const careRevision = useRef(0)
+  const loadedCareRevision = useRef(0)
+  const recorder = useJournalRecorder(setRecordingError)
+  const recording = recorder.phase !== 'idle'
   const current = journal.sessions.find((s) => s.id === selected),
     open = current?.status === 'open'
   const messages = journal.messages.filter((m) => m.sessionId === selected),
     files = journal.files.filter((f) => f.sessionId === selected)
-  async function reload(prefer?: string) {
-    const response = await fetch(base, { cache: 'no-store' })
-    const value = await response.json()
-    if (!response.ok || !Array.isArray(value.sessions) || !Array.isArray(value.messages) || !Array.isArray(value.files))
-      throw new Error(value.error ?? 'No pudimos cargar las sesiones.')
-    setJournal(value)
-    setSelected((old) => prefer ?? (value.sessions.some((s: { id: string }) => s.id === old) ? old : (value.sessions[0]?.id ?? '')))
-  }
+  const sessionPending = pending.filter((f) => f.sessionId === selected)
+  const ready = sessionPending.filter((f) => !f.validationError)
+  const canStage = open && !preview && !creating && !aiFile && !picking
+  const reload = useCallback(
+    (prefer?: string) => {
+      const signal = lifecycle.current?.signal
+      // Keep older reads from overwriting a later start or finish of care.
+      const next = reads.current
+        .catch(() => {})
+        .then(async () => {
+          if (!signal || signal.aborted) return
+          const revision = careRevision.current
+          const response = await fetch(base, { cache: 'no-store', signal })
+          const value = await response.json()
+          if (!response.ok || !Array.isArray(value.sessions) || !Array.isArray(value.messages) || !Array.isArray(value.files))
+            throw new Error(value.error ?? 'No pudimos cargar las sesiones.')
+          if (signal.aborted) return
+          currentJournal.current = value
+          setJournal(value)
+          setSelected((old) => prefer ?? (old || value.sessions[0]?.id || ''))
+          if (revision === careRevision.current) {
+            loadedCareRevision.current = revision
+            setRefreshRequired(false)
+          }
+        })
+      reads.current = next
+      return next
+    },
+    [base],
+  )
   useEffect(() => {
-    let active = true
-    mounted.current = true
-    fetch(base, { cache: 'no-store' })
-      .then(async (r) => {
-        const j = await r.json()
-        if (!r.ok || !Array.isArray(j.sessions) || !Array.isArray(j.messages) || !Array.isArray(j.files))
-          throw new Error(j.error ?? 'No pudimos cargar las sesiones.')
-        if (active) {
-          setJournal(j)
-          setSelected(j.sessions[0]?.id ?? '')
-        }
-      })
-      .catch((e) => active && setError(e.message))
-      .finally(() => active && setLoading(false))
-    return () => {
-      active = false
-      mounted.current = false
-      clearTimeout(timer.current)
-      if (recorder.current?.state === 'recording') recorder.current.stop()
-      stream.current?.getTracks().forEach((t) => t.stop())
+    const controller = new AbortController()
+    lifecycle.current = controller
+    const reportLoadError = (e: unknown) => {
+      if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'No pudimos actualizar las sesiones.')
     }
-  }, [base])
+    function onJournalChanged(event: Event) {
+      const target = (event as CustomEvent<{ patientId?: string }>).detail?.patientId
+      if (target && target !== patientId) return
+      careRevision.current++
+      setRefreshRequired(true)
+      setError('')
+      setPicking(false)
+      setAiFile(undefined)
+      void reload().catch(reportLoadError)
+    }
+    window.addEventListener(JOURNAL_CHANGED, onJournalChanged)
+    void reload()
+      .catch(reportLoadError)
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+    return () => {
+      window.removeEventListener(JOURNAL_CHANGED, onJournalChanged)
+      controller.abort()
+    }
+  }, [patientId, reload])
+  const onSessionClosed = useEffectEvent(() => {
+    if (recorder.phase === 'requesting') recorder.cancel()
+    else if (recorder.phase === 'recording') recorder.stop()
+  })
+  useEffect(() => {
+    if (current?.status === 'closed') onSessionClosed()
+  }, [current?.status])
+  useEffect(() => {
+    const urls = objectUrls.current
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url))
+      urls.clear()
+    }
+  }, [])
+  useEffect(() => {
+    function clearDrag() {
+      dragDepth.current = 0
+      setDragging(false)
+    }
+    function guardFileDrop(e: globalThis.DragEvent) {
+      if (e.dataTransfer && hasDraggedFiles(e.dataTransfer)) e.preventDefault()
+      if (e.type === 'drop') clearDrag()
+    }
+    window.addEventListener('dragover', guardFileDrop, true)
+    window.addEventListener('drop', guardFileDrop, true)
+    window.addEventListener('dragend', clearDrag)
+    window.addEventListener('blur', clearDrag)
+    return () => {
+      window.removeEventListener('dragover', guardFileDrop, true)
+      window.removeEventListener('drop', guardFileDrop, true)
+      window.removeEventListener('dragend', clearDrag)
+      window.removeEventListener('blur', clearDrag)
+    }
+  }, [])
+  const hasDraft = body.trim().length > 0
+  const hasUnsentContent = hasDraft || pending.length > 0 || recording
+  useEffect(() => {
+    if (!hasUnsentContent) return
+    function confirmLeave(e: BeforeUnloadEvent) {
+      e.preventDefault()
+      e.returnValue = true
+    }
+    window.addEventListener('beforeunload', confirmLeave)
+    return () => window.removeEventListener('beforeunload', confirmLeave)
+  }, [hasUnsentContent])
+  useEffect(() => {
+    if (log.current) log.current.scrollTop = log.current.scrollHeight
+  }, [selected, messages.length, files.length])
   useEffect(() => {
     if (!preview) return
     const dialog = previewRef.current
@@ -98,7 +219,8 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
     return result
   }
   async function run(fn: () => Promise<void>) {
-    if (busy) return
+    if (working.current) return
+    working.current = true
     setBusy(true)
     setError('')
     try {
@@ -106,89 +228,125 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No pudimos completar la acción.')
     } finally {
+      working.current = false
       setBusy(false)
     }
   }
-  async function saveMessage() {
-    if (!body.trim() || !open) return
-    await run(async () => {
-      await post({ action: 'message', sessionId: selected, body, patientVisible: visible, sourceFileId })
-      setBody('')
-      setSourceFileId(undefined)
-      setDraft(false)
-      await reload()
-    })
-  }
-  async function upload(file: File, target = selected) {
-    if (!target) throw new Error('Crea o elige una sesión primero.')
-    if (file.size > 3 * 1024 * 1024) throw new Error('Usa un archivo de hasta 3 MB. Divide el PDF si ocupa más.')
-    const form = new FormData()
-    form.set('file', file)
-    form.set('sessionId', target)
-    form.set('category', file.type.startsWith('audio/') ? 'audio' : category)
-    form.set('patientVisible', file.type.startsWith('audio/') ? 'false' : String(visible))
-    const response = await fetch(`${base}/files`, { method: 'POST', body: form })
-    const result = await response.json()
-    if (!response.ok) throw new Error(result.error ?? 'No se pudo subir el archivo.')
-    await reload(target)
-  }
-  async function startRecording() {
-    if (!open || busy) return
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-      setError('Este navegador no permite grabar. Puedes adjuntar un audio o usar el dictado del teclado.')
-      return
-    }
-    setError('')
-    setBusy(true)
-    try {
-      const media = await navigator.mediaDevices.getUserMedia({ audio: true })
-      if (!mounted.current) {
-        media.getTracks().forEach((t) => t.stop())
-        return
+
+  function addFiles(newFiles: File[]) {
+    const additions = newFiles.map((file) => {
+      const item = stageAttachment(++attachmentId.current, file, selected, visible)
+      if ((!item.validationError && file.type.startsWith('image/')) || item.category === 'audio') {
+        const previewUrl = URL.createObjectURL(file)
+        objectUrls.current.set(item.id, previewUrl)
+        return { ...item, previewUrl }
       }
-      stream.current = media
-      const mime = ['audio/webm', 'audio/mp4'].find((t) => MediaRecorder.isTypeSupported(t))
-      const rec = new MediaRecorder(media, mime ? { mimeType: mime } : undefined)
-      recorder.current = rec
-      const chunks: Blob[] = []
-      let bytes = 0
-      const target = selected
-      rec.ondataavailable = (e) => {
-        if (e.data.size) {
-          chunks.push(e.data)
-          bytes += e.data.size
-          if (bytes > 3 * 1024 * 1024 && rec.state !== 'inactive') rec.stop()
+      return item
+    })
+    setPending((old) => [...old, ...additions])
+  }
+
+  function pickFiles(e: ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.currentTarget.files ?? [])
+    e.currentTarget.value = ''
+    if (!open || !picked.length) return
+    addFiles(picked)
+    setPicking(false)
+  }
+
+  function removeFile(id: number) {
+    const url = objectUrls.current.get(id)
+    if (url) URL.revokeObjectURL(url)
+    objectUrls.current.delete(id)
+    setPending((old) => old.filter((item) => item.id !== id))
+  }
+
+  function editFile(id: number, options: Partial<Pick<PendingAttachment, 'category' | 'patientVisible'>>) {
+    setPending((old) => old.map((item) => (item.id === id ? { ...item, ...options } : item)))
+  }
+
+  function sessionCanSend(sessionId: string) {
+    return (
+      lifecycle.current?.signal.aborted === false &&
+      careRevision.current === loadedCareRevision.current &&
+      currentJournal.current.sessions.some((session) => session.id === sessionId && session.status === 'open')
+    )
+  }
+
+  async function send(attachments: LocalAttachment[], includeNote: boolean) {
+    if (!sessionCanSend(selected) || recording || (!includeNote && !attachments.length)) return
+    await run(async () => {
+      let saved = false
+      let noteError = ''
+      if (includeNote) {
+        try {
+          await post({ action: 'message', sessionId: selected, body, patientVisible: visible, sourceFileId })
+          saved = true
+          setBody('')
+          setSourceFileId(undefined)
+          setDraft(false)
+        } catch (e) {
+          noteError = e instanceof Error ? e.message : 'No se pudo guardar la nota.'
         }
       }
-      rec.onstop = () => {
-        clearTimeout(timer.current)
-        media.getTracks().forEach((t) => t.stop())
-        recorder.current = null
-        if (!mounted.current) return
-        setRecording(false)
-        const type = rec.mimeType.split(';')[0]
-        const file = new File(chunks, `Nota-${Date.now()}.${type === 'audio/mp4' ? 'm4a' : 'webm'}`, { type })
-        void run(() => upload(file, target))
+      for (const item of attachments) {
+        if (careRevision.current !== loadedCareRevision.current) await reads.current.catch(() => {})
+        if (!sessionCanSend(item.sessionId)) break
+        setUploading(item.id)
+        try {
+          await uploadAttachment(base, item)
+          removeFile(item.id)
+          saved = true
+        } catch (e) {
+          const uploadError = e instanceof Error ? e.message : 'No se pudo subir el archivo.'
+          setPending((old) => old.map((entry) => (entry.id === item.id ? { ...entry, uploadError } : entry)))
+        }
       }
-      rec.start(1000)
-      setRecording(true)
-      timer.current = setTimeout(() => {
-        if (rec.state === 'recording') rec.stop()
-      }, 60000)
-    } catch {
-      stream.current?.getTracks().forEach((t) => t.stop())
-      setError('No pudimos acceder al micrófono. Revisa el permiso del navegador.')
-    } finally {
-      setBusy(false)
-    }
+      setUploading(undefined)
+      if (saved) {
+        try {
+          await reload()
+        } catch {
+          throw new Error([noteError, 'Lo enviado se guardó, pero no pudimos actualizar el historial.'].filter(Boolean).join(' '))
+        }
+      }
+      if (noteError) throw new Error(noteError)
+    })
   }
-  const hasDraft = body.trim().length > 0
+
+  function onDragEnter(e: DragEvent<HTMLDivElement>) {
+    if (!canStage || !hasDraggedFiles(e.dataTransfer)) return
+    e.preventDefault()
+    dragDepth.current++
+    setDragging(true)
+  }
+
+  function onDragLeave() {
+    if (dragDepth.current > 0) dragDepth.current--
+    if (!dragDepth.current) setDragging(false)
+  }
+
+  function onDrop(e: DragEvent<HTMLDivElement>) {
+    if (!hasDraggedFiles(e.dataTransfer)) return
+    e.preventDefault()
+    if (!canStage) return
+    const dropped = Array.from(e.dataTransfer.files ?? [])
+    if (dropped.length) addFiles(dropped)
+    else setError('No se encontró ningún archivo en lo que soltaste.')
+  }
+
+  function discardNote() {
+    return !hasDraft || window.confirm('Hay una nota sin guardar. ¿Quieres descartarla para cambiar de sesión?')
+  }
   function choose(id: string) {
-    if (recording || busy) return
-    if (hasDraft && !window.confirm('Hay una nota sin guardar. ¿Quieres descartarla para cambiar de sesión?')) return
+    if (id === selected || recording || working.current) return
+    if (!discardNote()) return
     setBody('')
     setDraft(false)
     setSourceFileId(undefined)
+    setRecordingError('')
+    dragDepth.current = 0
+    setDragging(false)
     setSelected(id)
   }
   function attachment(file: JournalFile) {
@@ -238,14 +396,19 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
     )
   }
   return (
-    <section className="session-journal glass overflow-hidden" aria-label="Historial clínico por sesiones">
+    <section className="session-journal glass overflow-clip" aria-label="Historial clínico por sesiones">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#153e32] p-4 sm:p-5">
         <div>
           <p className="text-xs text-emerald-200">Expediente del paciente</p>
           <h2 className="mt-1 text-xl font-semibold text-white">Historial por sesiones</h2>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn btn-secondary" disabled={busy || recording} onClick={() => setCreating(true)}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={busy || recording}
+            onClick={() => discardNote() && setCreating(true)}
+          >
             <Plus size={17} />
             Nueva sesión
           </button>
@@ -288,12 +451,27 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
                     {date(s.sessionDate)} · {s.status === 'open' ? 'Abierta' : 'Cerrada'}
                   </span>
                   <span className="mt-1 block break-words text-sm font-medium">{s.title}</span>
+                  {pending.some((f) => f.sessionId === s.id) && (
+                    <span className="mt-1 block text-xs text-amber-200">Adjuntos pendientes</span>
+                  )}
                 </button>
               ))}
             </div>
             {!journal.sessions.length && <p className="p-3 text-sm text-muted">Aún no hay sesiones nuevas.</p>}
           </nav>
-          <div className="min-w-0">
+          <div
+            className="journal-thread min-w-0"
+            onDragEnter={onDragEnter}
+            onDragLeave={onDragLeave}
+            onDragOver={(e) => {
+              if (canStage && hasDraggedFiles(e.dataTransfer)) {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'copy'
+                setDragging(true)
+              }
+            }}
+            onDrop={onDrop}
+          >
             {current ? (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 p-4">
@@ -306,7 +484,7 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
                   {open && (
                     <button
                       type="button"
-                      disabled={busy || recording || hasDraft}
+                      disabled={busy || refreshRequired || recording || hasDraft || sessionPending.length > 0}
                       className="btn btn-ghost text-xs"
                       onClick={() => {
                         if (
@@ -325,7 +503,13 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
                     </button>
                   )}
                 </div>
-                <div className="journal-conversation min-h-64 space-y-4 p-4 sm:p-6" role="log" aria-label="Entradas de la sesión">
+                <div
+                  ref={log}
+                  className="journal-conversation space-y-4 p-4 sm:p-6"
+                  role="log"
+                  tabIndex={0}
+                  aria-label="Entradas de la sesión"
+                >
                   {!messages.length && !files.length && (
                     <p className="py-10 text-center text-sm text-muted">Escribe una nota o adjunta la radiografía de esta sesión.</p>
                   )}
@@ -358,7 +542,7 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
                                 </span>
                                 <button
                                   type="button"
-                                  disabled={busy}
+                                  disabled={busy || recording}
                                   className="min-h-11 underline"
                                   onClick={() =>
                                     void run(async () => {
@@ -376,109 +560,265 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
                       ),
                     )}
                 </div>
-                {open ? (
-                  <div className="border-t border-white/10 bg-[#17231f] p-4">
-                    {draft && (
-                      <p role="status" className="mb-2 rounded-lg bg-amber-400/10 p-2 text-xs text-amber-200">
-                        Borrador generado por IA. Revisa nombres, piezas y datos antes de guardarlo. No está en el historial todavía.
-                      </p>
+                {(open || hasDraft || sessionPending.length > 0) && (
+                  <form
+                    key={selected}
+                    className="journal-composer"
+                    data-review={draft}
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      void send(ready, hasDraft)
+                    }}
+                    onPaste={(e) => {
+                      if (!canStage) return
+                      const pasted = clipboardFiles(e.clipboardData)
+                      if (!pasted.length) return
+                      e.preventDefault()
+                      addFiles(pasted)
+                    }}
+                  >
+                    {!open && hasDraft && (
+                      <div>
+                        <p role="status" className="mb-2 text-sm text-amber-200">
+                          La sesión se cerró antes de guardar esta nota. Puedes copiar el borrador.
+                        </p>
+                        <label className="sr-only" htmlFor={`journal-note-${patientId}`}>
+                          Nota de la sesión
+                        </label>
+                        <textarea id={`journal-note-${patientId}`} rows={3} className="field w-full resize-y" value={body} readOnly />
+                      </div>
                     )}
-                    <label className="sr-only" htmlFor={`journal-note-${patientId}`}>
-                      Nota de la sesión
-                    </label>
-                    <textarea
-                      id={`journal-note-${patientId}`}
-                      rows={3}
-                      maxLength={12000}
-                      className="field w-full resize-y"
-                      placeholder="Escribe lo que hiciste en esta sesión…"
-                      value={body}
-                      disabled={busy || recording}
-                      onChange={(e) => setBody(e.target.value)}
-                    />
-                    <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-                      <label className="flex min-h-11 items-center gap-2 text-xs text-muted">
-                        <input
-                          type="checkbox"
-                          checked={visible}
-                          onChange={(e) => setVisible(e.target.checked)}
-                          disabled={busy || recording}
-                        />
-                        Incluir nota y adjuntos en vista paciente
-                      </label>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={!body.trim() || busy || recording}
-                        onClick={() => void saveMessage()}
-                      >
-                        <Send size={17} />
-                        {busy ? 'Guardando…' : draft ? 'Confirmar y guardar' : 'Guardar nota'}
-                      </button>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
-                      <label className="sr-only" htmlFor={`journal-category-${patientId}`}>
-                        Tipo de adjunto
-                      </label>
-                      <select
-                        id={`journal-category-${patientId}`}
-                        className="field min-h-11 max-w-full text-xs"
-                        value={category}
-                        disabled={busy || recording}
-                        onChange={(e) => setCategory(e.target.value as FileCategory)}
-                      >
-                        {Object.entries(FILE_CATEGORY_LABEL).map(([key, label]) => (
-                          <option key={key} value={key}>
-                            {label}
-                          </option>
+                    {sessionPending.length > 0 && (
+                      <ul className="journal-pending" aria-label="Adjuntos pendientes de la sesión">
+                        {sessionPending.map((item) => (
+                          <li key={item.id} className="journal-pending-item">
+                            {item.previewUrl && item.category !== 'audio' ? (
+                              <img className="journal-pending-thumbnail" src={item.previewUrl} alt="" />
+                            ) : item.category === 'audio' ? (
+                              <Mic size={20} aria-hidden="true" />
+                            ) : (
+                              <FileText size={20} aria-hidden="true" />
+                            )}
+                            <div className="min-w-0">
+                              <p className="break-words text-sm font-medium">{item.file.name}</p>
+                              <p className="text-xs text-muted">
+                                {(item.file.size / 1024 / 1024).toFixed(2)} MB ·{' '}
+                                {uploading === item.id
+                                  ? 'Subiendo…'
+                                  : !open
+                                    ? 'Conservado localmente'
+                                    : item.validationError || item.uploadError
+                                      ? 'Pendiente de resolver'
+                                      : 'Listo para enviar'}
+                              </p>
+                              {(item.validationError || item.uploadError) && (
+                                <p role="alert" className="mt-1 text-sm text-red-200">
+                                  {item.validationError || item.uploadError}
+                                </p>
+                              )}
+                              {item.category === 'audio' ? (
+                                <>
+                                  <p className="mt-1 text-xs text-emerald-200">
+                                    <LockKeyhole size={12} className="mr-1 inline" /> Audio interno
+                                  </p>
+                                  {item.previewUrl && (
+                                    <audio
+                                      className="journal-audio-preview"
+                                      controls
+                                      preload="none"
+                                      src={item.previewUrl}
+                                      aria-label={`Escuchar ${item.file.name}`}
+                                    />
+                                  )}
+                                  {item.previewUrl && (item.validationError || item.uploadError || !open) && (
+                                    <a className="journal-action text-xs" href={item.previewUrl} download={item.file.name}>
+                                      Descargar audio
+                                    </a>
+                                  )}
+                                </>
+                              ) : (
+                                !item.validationError && (
+                                  <div className="journal-file-options">
+                                    <select
+                                      aria-label={`Tipo de adjunto: ${item.file.name}`}
+                                      className="field min-h-11 max-w-full text-xs"
+                                      value={item.category}
+                                      disabled={busy || !open}
+                                      onChange={(e) => editFile(item.id, { category: e.target.value as FileCategory })}
+                                    >
+                                      {Object.entries(FILE_CATEGORY_LABEL)
+                                        .filter(([key]) => key !== 'audio')
+                                        .map(([key, label]) => (
+                                          <option key={key} value={key}>
+                                            {label}
+                                          </option>
+                                        ))}
+                                    </select>
+                                    <label className="journal-visibility text-xs">
+                                      <input
+                                        type="checkbox"
+                                        aria-label={`Incluir ${item.file.name} en vista paciente`}
+                                        checked={item.patientVisible}
+                                        disabled={busy || !open}
+                                        onChange={(e) => editFile(item.id, { patientVisible: e.target.checked })}
+                                      />
+                                      {item.patientVisible ? 'Vista paciente' : 'Interno'}
+                                    </label>
+                                  </div>
+                                )
+                              )}
+                              {open && item.uploadError && (
+                                <button
+                                  type="button"
+                                  className="journal-action text-xs"
+                                  aria-label={`Reintentar ${item.file.name}`}
+                                  disabled={busy || refreshRequired || recording}
+                                  onClick={() => void send([item], false)}
+                                >
+                                  <RotateCcw size={16} />
+                                  Reintentar
+                                </button>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              className="journal-icon-button"
+                              aria-label={`Quitar ${item.file.name}`}
+                              title="Quitar adjunto"
+                              disabled={busy}
+                              onClick={() => removeFile(item.id)}
+                            >
+                              <X size={18} />
+                            </button>
+                          </li>
                         ))}
-                      </select>
-                      <input
-                        ref={input}
-                        type="file"
-                        className="sr-only"
-                        aria-label="Archivo de la sesión"
-                        accept="application/pdf,image/jpeg,image/png,image/webp,audio/webm,audio/mp4,audio/mpeg,audio/ogg,audio/wav"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          e.target.value = ''
-                          if (file) void run(() => upload(file))
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-secondary text-xs"
-                        disabled={busy || recording}
-                        onClick={() => input.current?.click()}
-                      >
-                        <Paperclip size={16} />
-                        Adjuntar archivo
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary text-xs"
-                        disabled={busy}
-                        onClick={() => (recording ? recorder.current?.stop() : void startRecording())}
-                      >
-                        {recording ? <Square size={16} /> : <Mic size={16} />} {recording ? 'Detener grabación' : 'Grabar audio'}
-                      </button>
-                      <span className="text-[11px] text-muted">Hasta 3 MB por archivo · audio hasta 1 minuto</span>
-                    </div>
-                    {recording && (
-                      <p role="status" className="mt-2 text-sm text-red-300">
-                        Grabando… El audio quedará privado en esta sesión.
-                      </p>
+                      </ul>
                     )}
-                    {!journal.aiEnabled && (
-                      <p className="mt-2 text-xs text-muted">
-                        Transcripción y lectura de PDF pendientes de configurar OpenAI. Puedes guardar notas y adjuntos.
-                      </p>
+                    {open && (
+                      <>
+                        {draft && (
+                          <p role="status" className="rounded-lg bg-amber-400/10 p-2 text-xs text-amber-200">
+                            Borrador generado por IA. Revisa nombres, piezas y datos antes de guardarlo. No está en el historial todavía.
+                          </p>
+                        )}
+                        <div className="journal-write-row">
+                          <button
+                            type="button"
+                            aria-label="Adjuntar archivo"
+                            aria-haspopup="dialog"
+                            title="Adjuntar archivos"
+                            className="journal-icon-button"
+                            disabled={busy || recording}
+                            onClick={() => setPicking(true)}
+                          >
+                            <Paperclip size={21} />
+                          </button>
+                          <label className="sr-only" htmlFor={`journal-note-${patientId}`}>
+                            Nota de la sesión
+                          </label>
+                          <textarea
+                            id={`journal-note-${patientId}`}
+                            rows={1}
+                            maxLength={12000}
+                            className="field journal-note"
+                            placeholder="Escribe una nota…"
+                            value={body}
+                            disabled={busy}
+                            enterKeyHint="enter"
+                            onChange={(e) => setBody(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing) {
+                                e.preventDefault()
+                                e.currentTarget.form?.requestSubmit()
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            aria-label={recording ? 'Detener grabación' : 'Grabar audio'}
+                            title={recording ? 'Detener grabación' : 'Grabar audio'}
+                            className="journal-icon-button"
+                            disabled={busy || recorder.phase === 'requesting' || recorder.phase === 'finishing'}
+                            onClick={() => (recording ? recorder.stop() : void recorder.start((file) => addFiles([file])))}
+                          >
+                            {recording ? <Square size={18} /> : <Mic size={21} />}
+                          </button>
+                          <button
+                            type="submit"
+                            className="journal-send"
+                            title="Enviar (Ctrl o ⌘ + Enter)"
+                            aria-keyshortcuts="Control+Enter Meta+Enter"
+                            disabled={busy || refreshRequired || recording || (!hasDraft && !ready.length)}
+                          >
+                            <Send size={17} />
+                            <span>
+                              {busy
+                                ? 'Enviando…'
+                                : draft
+                                  ? 'Confirmar y guardar'
+                                  : hasDraft && ready.length
+                                    ? 'Guardar nota y adjuntos'
+                                    : hasDraft
+                                      ? 'Guardar nota'
+                                      : 'Enviar adjuntos'}
+                            </span>
+                          </button>
+                        </div>
+                        {recording && (
+                          <div className="journal-recording">
+                            <p role="status" className="text-sm">
+                              {recorder.phase === 'requesting'
+                                ? 'Esperando permiso del micrófono…'
+                                : recorder.phase === 'finishing'
+                                  ? 'Preparando el audio…'
+                                  : 'Grabando audio interno… hasta 1 minuto.'}
+                            </p>
+                            <button type="button" className="journal-action text-xs" onClick={recorder.cancel}>
+                              Cancelar grabación
+                            </button>
+                          </div>
+                        )}
+                        {recordingError && (
+                          <p role="alert" className="text-sm text-red-200">
+                            {recordingError}
+                          </p>
+                        )}
+                        {refreshRequired && (
+                          <p role="status" className="text-xs text-muted">
+                            {error ? 'Actualiza las sesiones para confirmar que puedes enviar.' : 'Comprobando el estado de la sesión…'}
+                          </p>
+                        )}
+                        <div className="journal-composer-options">
+                          <label className="journal-visibility text-xs">
+                            <input type="checkbox" checked={visible} disabled={busy} onChange={(e) => setVisible(e.target.checked)} />
+                            Incluir la nota en vista paciente
+                          </label>
+                          <p className="text-xs text-muted">
+                            Hasta 3 MB por archivo<span className="journal-desktop-hint"> · Arrastra archivos o pega fotos</span>
+                          </p>
+                        </div>
+                        {!journal.aiEnabled && (
+                          <p className="text-xs text-muted">
+                            Transcripción y lectura de PDF pendientes de configurar OpenAI. Puedes guardar notas y adjuntos.
+                          </p>
+                        )}
+                      </>
                     )}
-                  </div>
-                ) : (
+                  </form>
+                )}
+                {!open && (
                   <p className="border-t border-white/10 p-4 text-sm text-muted">
                     Sesión cerrada. Crea otra sesión para continuar el historial.
                   </p>
+                )}
+                {dragging && canStage && (
+                  <div className="journal-drop-overlay">
+                    <div className="journal-drop-prompt" role="status">
+                      <Paperclip size={24} aria-hidden="true" />
+                      Suelta los archivos para adjuntarlos a esta sesión
+                      <span className="text-xs">Hasta 3 MB por archivo</span>
+                    </div>
+                  </div>
                 )}
               </>
             ) : (
@@ -538,6 +878,28 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
           {journal.files.filter((f) => !f.sessionId).map(attachment)}
         </div>
       </details>
+      {picking && open && (
+        <Modal open={picking} onClose={() => setPicking(false)} title="Adjuntar archivos">
+          <div className="journal-picker">
+            <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={pickFiles} />
+            <input ref={galleryInput} type="file" accept={PHOTO_ACCEPT} multiple hidden onChange={pickFiles} />
+            <input ref={documentInput} type="file" accept={DOCUMENT_ACCEPT} multiple hidden onChange={pickFiles} />
+            <button type="button" className="journal-picker-option" onClick={() => cameraInput.current?.click()}>
+              <Camera size={21} />
+              Tomar foto
+            </button>
+            <button type="button" className="journal-picker-option" onClick={() => galleryInput.current?.click()}>
+              <ImageIcon size={21} aria-hidden="true" />
+              Fotos de la galería
+            </button>
+            <button type="button" className="journal-picker-option" onClick={() => documentInput.current?.click()}>
+              <FileText size={21} />
+              Documentos y audio
+            </button>
+            <p className="text-xs text-muted">Hasta 3 MB por archivo · JPG, PNG, WEBP, PDF y audio compatible</p>
+          </div>
+        </Modal>
+      )}
       {creating && (
         <Modal
           open={creating}
@@ -556,6 +918,8 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
                 setCreating(false)
                 setTitle('')
                 setBody('')
+                setSourceFileId(undefined)
+                setRecordingError('')
                 setDraft(false)
               })
             }}
@@ -625,7 +989,7 @@ export function SessionJournal({ patientId, patientName, data }: { patientId: st
               </button>
               <button
                 type="button"
-                disabled={!consent || busy || hasDraft}
+                disabled={!consent || busy || refreshRequired || !open || hasDraft}
                 className="btn btn-primary"
                 onClick={() =>
                   void run(async () => {

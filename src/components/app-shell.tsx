@@ -53,9 +53,9 @@ export function AppShell({
   const [more, setMore] = useState(false)
   const [search, setSearch] = useState(false)
   const active = (href: string) =>
-    path === href || path.startsWith(href + '/') || (href === '/agenda' && (path.startsWith('/consulta') || path.startsWith('/recepcion')))
-  const current = path.startsWith('/consulta') ? 'Atención del paciente' : (items.find((i) => active(i.href))?.label ?? 'Tu clínica')
-  const primary = items.filter((i) => ['/inicio', '/agenda', '/pacientes'].includes(i.href))
+    path === href || path.startsWith(href + '/') || (href === '/agenda' && (path === '/recepcion' || path.startsWith('/recepcion/')))
+  const current = path.startsWith('/consulta/') ? 'Atención del paciente' : (items.find((i) => active(i.href))?.label ?? 'Tu clínica')
+  const primary = items.filter((i) => ['/inicio', '/agenda', '/consulta', '/pacientes'].includes(i.href))
   const daily = items.filter((i) => !['configuracion', 'cuenta'].includes(i.icon))
   const management = items.filter((i) => i.icon === 'configuracion')
   const rest = items.filter((i) => !primary.includes(i))
@@ -159,7 +159,7 @@ export function AppShell({
           {children}
         </main>
       </div>
-      <nav aria-label="Principal en celular" className="app-bottom-nav">
+      <nav aria-label="Principal en celular" className={`app-bottom-nav ${primary.length === 4 ? 'grid-cols-5' : ''}`}>
         {primary.map(({ href, label, icon }) => {
           const Icon = ICONS[icon]
           return (

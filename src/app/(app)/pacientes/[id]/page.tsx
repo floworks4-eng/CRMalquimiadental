@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { PatientDetailView } from '@/components/patients/patient-detail'
+import { PatientCareFlow } from '@/components/patients/patient-care-flow'
 import { AnamnesisCard } from '@/components/patients/anamnesis-card'
 import { PatientClinicalView, PatientInvoices } from '@/components/patients/patient-clinical'
 import { getPatientDetail } from '@/server/queries/patients'
@@ -40,7 +41,12 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
       canEdit={can(r, 'patients.update_demographics')}
       canBook={can(r, 'agenda.manage')}
       canAssignDentist={r !== 'dentist'}
-      clinical={clinical}
+      clinical={
+        <>
+          <PatientCareFlow key={patient.id} appointments={patient.appointments} role={r} userId={s.userId} />
+          {clinical}
+        </>
+      }
     />
   )
 }

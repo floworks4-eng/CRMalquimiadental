@@ -2,6 +2,7 @@ import 'server-only'
 import { createClient } from '../supabase/server'
 import { requireCapability } from '../auth/guards'
 import type { StockReason } from '@/lib/domain/clinical'
+import { readPages } from './read-pages'
 
 export type StockLot = { id: string; lotCode: string | null; expiresOn: string | null; qty: number; unitCostCents: number | null; receivedAt: string; supplier: string | null }
 export type StockItem = {
@@ -10,6 +11,51 @@ export type StockItem = {
 }
 export type StockMove = { id: string; item: string; unit: string; delta: number; reason: StockReason; note: string | null; createdAt: string; by: string }
 export type Inventory = { items: StockItem[]; moves: StockMove[]; suppliers: { id: string; name: string }[] }
+export type PendingStockDeficit = {
+  encounterId: string
+  appointmentId: string | null
+  patientName: string | null
+  itemId: string
+  itemName: string | null
+  unit: string | null
+  quantity: number
+  createdAt: string
+}
+
+export async function getPendingStockDeficits(): Promise<PendingStockDeficit[] | null> {
+  const { member } = await requireCapability('inventory.adjust')
+  const supabase = await createClient()
+  type Row = {
+    encounter_id: string
+    supply_item_id: string
+    qty_missing: number | string
+    created_at: string
+    item: { name: string; unit: string } | null
+    encounter: { appointment_id: string; patient: { full_name: string } | null } | null
+  }
+  const rows = await readPages<Row>(
+    (start, end) => supabase.from('stock_consumption_deficits')
+      .select('encounter_id, supply_item_id, qty_missing, created_at, item:supply_items(name, unit), encounter:encounters(appointment_id, patient:patients(full_name))')
+      .eq('clinic_id', member.clinicId)
+      .is('resolved_at', null)
+      .order('created_at', { ascending: false })
+      .order('encounter_id')
+      .order('supply_item_id')
+      .range(start, end),
+    'No pudimos cargar los insumos pendientes',
+  ).catch(() => null)
+
+  return rows?.map((row) => ({
+    encounterId: row.encounter_id,
+    appointmentId: row.encounter?.appointment_id ?? null,
+    patientName: row.encounter?.patient?.full_name ?? null,
+    itemId: row.supply_item_id,
+    itemName: row.item?.name ?? null,
+    unit: row.item?.unit ?? null,
+    quantity: Number(row.qty_missing),
+    createdAt: row.created_at,
+  })) ?? null
+}
 
 export async function getInventory(): Promise<Inventory> {
   await requireCapability('inventory.read')

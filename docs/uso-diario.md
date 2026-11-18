@@ -25,3 +25,19 @@ En **Agenda → Nueva cita**, el selector muestra los 12 pacientes recientes. Al
 Los botones CSV exportan todos los movimientos del mes y todos los saldos actuales. Los importes se guardan como centavos de boliviano y no se truncan en el reporte. Los gastos se clasifican con categorías consistentes desde el formulario.
 
 Este reporte sirve para control operativo. La numeración de `invoices` es interna; no emite documentos fiscales ni presenta declaraciones al SIN. La emisión fiscal en línea requiere un sistema autorizado y validación ante el SIN: [información oficial sobre factura electrónica](https://siatinfo.impuestos.gob.bo/index.php/facturacion-en-linea/factura-electronica).
+
+## Llegadas y atención del día
+
+**Recepción trabaja en Agenda.** El tablero superior reúne «Por llegar», «En espera», «En consulta» y «Atendidos». En la tarjeta, **Registrar llegada** mueve la cita a la espera y anota la hora. No hace falta arrastrar tarjetas con precisión. El servidor confirma el cambio; un rechazo conserva el estado y explica el problema.
+
+**El odontólogo trabaja en Atención y la ficha del paciente.** Atención muestra sus consultas activas y su espera en orden de llegada. **Iniciar atención** abre el encuentro y crea una sola sesión de historial vinculada. El mismo control aparece sobre el historial del paciente. En tablet y celular, Atención está en la navegación principal. Las colas visibles se actualizan cada diez segundos.
+
+Al terminar, **Finalizar atención → Confirmar cierre** cierra encuentro, cita y sesión vinculada, conservando las notas. Una evaluación sin tratamientos exige una nota clínica. Los tratamientos preparados para esa atención generan su documento de cobro; recepción cobra en Caja. Un reintento no duplica factura ni consumo de materiales. Si faltan insumos registrados, la atención puede cerrarse y administración recibe el pendiente para conciliarlo; no se inventan existencias ni se deja un lote negativo.
+
+## Historia, fotos y documentos
+
+En la ficha del paciente, **Ficha clínica** reúne motivo, enfermedad actual, antecedentes, exploración, pruebas, diagnóstico, pronóstico, plan e indicaciones. Cada revisión conserva la anterior. Un campo sin completar queda «No registrado». El profesional puede incluir o excluir su evaluación de la copia para el paciente.
+
+El historial se organiza por sesiones. El clip permite elegir fotos, cámara o documentos. En computadora también se pueden soltar archivos sobre la conversación o pegar una imagen desde el portapapeles. La lista previa permite revisar, quitar, categorizar y elegir qué se incluye en la copia. **Enviar** confirma la nota y los adjuntos; las subidas fallidas se conservan para reintentar. El audio se revisa antes de enviar y queda interno. Se admite hasta 3 MB por archivo; en pantallas táctiles siempre se puede usar el selector sin depender de arrastrar.
+
+**Exportar PDF** genera una historia clínica con identificación, anamnesis, evaluación publicada, odontograma, plan, evolución por fecha y adjuntos autorizados. Conserva los originales incrustados y agrega las páginas de los PDF aportados. Una copia combinada no sustituye ni valida firmas del original. No se exportan notas internas, borradores ni grabaciones de audio. Formularios públicos y firma del paciente se abordarán por separado.

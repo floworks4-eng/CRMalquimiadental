@@ -1,27 +1,59 @@
-# Alquimia Dental · Sistema clínico
+# Alquimia Dental
 
-Sistema interno de Alquimia Dental (San Miguel, La Paz) para el Doc y su equipo. todo lo
-maneja el personal de la clínica. Primera versión real, sobre Supabase (base de datos y acceso) y Next.js.
+Sistema interno de la clínica: agenda, atención, historia clínica, cobros e inventario. Next.js y React para la aplicación; Supabase para autenticación, PostgreSQL y archivos privados.
 
-## Qué hace
+## Trabajo diario
 
-| Módulo        | Quién                                 | Qué                                                                                                                                      |
-| ------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Inicio        | todos                                 | Citas del día, sala de espera, ingresos y saldos (caja), stock bajo, primeros pasos de configuración                                     |
-| Agenda        | todos (el odontólogo, solo la suya)   | Citas por gabinete, horarios libres reales, reprogramar, cancelar, sin doble reserva                                                     |
-| Recepción     | admin, recepción                      | Llegadas del día: confirmar, «Llegó» (sala de espera + aviso al odontólogo)                                                              |
-| Pacientes     | todos (el odontólogo, solo los suyos) | Directorio, alta, ficha, anamnesis versionada, odontograma acumulado, plan pendiente, atenciones y cuenta                                |
-| Consulta      | admin, odontólogo                     | Iniciar atención, hallazgos por pieza y superficie, plan (hoy / próximas sesiones), notas, insumos, **finalizar y cobrar**               |
-| Caja          | admin, recepción                      | Apertura, cobros y saldos, gastos, anulaciones (admin), arqueo y cierre con diferencia explicada                                         |
-| Inventario    | todos leen; admin escribe             | Stock por lotes y vencimiento, ingresos, ajustes y mermas, movimientos                                                                   |
-| Configuración | admin                                 | Datos de la clínica, horario, feriados, gabinetes, tratamientos y precios, recetas de insumos, equipo y turnos, importar pacientes (CSV) |
+- **Recepción:** Agenda. Las citas avanzan de «Por llegar» a «En espera» desde el tablero del día.
+- **Odontólogos:** Atención y ficha del paciente. Ven su sala de espera, abren la consulta y registran lo realizado.
+- **Historia clínica:** evaluación estructurada, odontograma, sesiones, notas y adjuntos. Las notas internas no se incluyen en la copia del paciente.
+- **Caja:** cobros, saldos, movimientos y cierre. Marcar una atención como terminada no significa que esté pagada.
+- **Administración:** tratamientos, precios, recetas de insumos, equipo, horarios y reportes.
 
+## Ejecutar el proyecto
+
+Requiere Node.js, npm y un proyecto Supabase configurado.
+
+```sh
+npm ci
+cp .env.example .env.local
+npm run dev
+```
+
+Completar las variables de `.env.local` con las del entorno correspondiente. No subir claves ni archivos clínicos al repositorio. Las funciones de IA son opcionales y requieren una clave de servidor de OpenAI.
+
+```sh
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npm run test:e2e
+```
+
+El build prepara y verifica los archivos comprimidos del modelo dental. Las migraciones se encuentran en `supabase/migrations`; deben revisarse y aplicarse al entorno previsto antes de desplegar código que las utilice. Las pruebas de base de datos usan PGlite y datos ficticios.
+
+## Estructura
+
+| Carpeta | Contenido |
+|---|---|
+| `src/app` | Pantallas y rutas HTTP |
+| `src/components` | Interfaz por módulo |
+| `src/server` | Autorización, consultas y operaciones |
+| `src/lib/domain` | Tipos, validaciones y reglas compartidas |
+| `supabase` | Migraciones, datos de desarrollo y pruebas de permisos |
+| `public/models` | Modelo dental y atribución de su licencia |
+| `scripts` | Preparación de recursos y medición de rendimiento |
+| `e2e` | Pruebas de navegador |
+| `docs` | Operación, arquitectura y decisiones |
+| `ads` y `assets/ads` | Anuncios conservados para su organización posterior |
 
 ## Documentación
 
-- [`docs/arquitectura.md`](docs/arquitectura.md): capas, migraciones y decisiones.
-- [`docs/seguridad.md`](docs/seguridad.md): reglas, permisos por rol y estado verificado.
-- [`docs/operacion.md`](docs/operacion.md): puesta en marcha, respaldos, altas y bajas, rotación de llaves, incidentes.
-- [`docs/fase1-brief.md`](docs/fase1-brief.md): brief original de la Fase 1.
+- [Uso diario](docs/uso-diario.md)
+- [Operación y despliegue](docs/operacion.md)
+- [Arquitectura](docs/arquitectura.md)
+- [Seguridad y permisos](docs/seguridad.md)
+- [Historial por sesiones](docs/historial-por-sesiones.md)
+- [Referencias de historia clínica](docs/referencias-historia-clinica.md)
 
-Preparado por Lumen Labs.
+`docs/archivo` conserva documentos de contexto y revisiones anteriores. Describen el estado de su fecha y no sustituyen la documentación actual.

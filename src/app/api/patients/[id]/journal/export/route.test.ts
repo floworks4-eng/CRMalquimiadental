@@ -5,6 +5,7 @@ vi.mock('@/server/journal', () => ({
   journalFailure: () => Response.json({ error: 'fallo' }, { status: 500 }),
 }))
 vi.mock('@/server/queries/read-pages', () => ({ readPages: mocks.pages }))
+vi.mock('@/server/clinical-report', () => ({ clinicalReportContext: async () => ({}) }))
 vi.mock('@/server/journal-pdf', () => ({ buildJournalPdf: mocks.pdf }))
 import { GET } from './route'
 const id = '11111111-1111-4111-8111-111111111111',
@@ -56,4 +57,18 @@ it('no exporta ni consulta mensajes si no hay acceso clínico', async () => {
   expect(result.status).toBe(403)
   expect(mocks.pdf).not.toHaveBeenCalled()
   expect(mocks.pages).not.toHaveBeenCalled()
+})
+it('intercala cronológicamente atenciones antiguas con sesiones nuevas sin duplicar una atención ya enlazada', async () => {
+  mocks.pages.mockReset()
+  mocks.pages
+    .mockResolvedValueOnce([{ id: sid, title: 'Actual', session_date: '2026-11-18', encounter_id: 'linked' }])
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([
+      { id: 'older', chief_complaint: 'Control anterior', notes: 'Evaluación previa', started_at: '2026-10-01T12:00:00Z' },
+      { id: 'linked', started_at: '2026-11-18T12:00:00Z' },
+    ])
+  const result = await GET(new Request('https://example.test/api'), { params: Promise.resolve({ id }) })
+  expect(result.status).toBe(200)
+  expect(mocks.pdf.mock.calls[0][1].map((session: { id: string }) => session.id)).toEqual(['older', sid])
 })

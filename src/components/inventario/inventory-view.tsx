@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { Fragment, useState, useTransition } from 'react'
+import { Fragment, useState, useTransition, type ReactNode } from 'react'
 import { AlertTriangle, ChevronDown, PackagePlus, Pencil, Plus } from 'lucide-react'
 import { Field, Modal, PageHeader } from '../ui'
 import { adjustStock, createSupplier, receiveStock, saveSupplyItem } from '@/server/actions/inventory'
@@ -15,7 +15,7 @@ type Dialog = { kind: 'item'; item?: StockItem } | { kind: 'receive'; item?: Sto
 const qtyText = (n: number) => String(Math.round(n * 1000) / 1000)
 const soon = (date: string | null) => !!date && new Date(date).getTime() - Date.now() < 60 * 86_400_000
 
-export function InventoryView({ data, canManage }: { data: Inventory; canManage: boolean }) {
+export function InventoryView({ data, canManage, children }: { data: Inventory; canManage: boolean; children?: ReactNode }) {
   const [dialog, setDialog] = useState<Dialog>(null)
   const [open, setOpen] = useState<string | null>(null)
   const [q, setQ] = useState('')
@@ -23,7 +23,7 @@ export function InventoryView({ data, canManage }: { data: Inventory; canManage:
   const low = data.items.filter((i) => i.active && i.minStock > 0 && i.onHand <= i.minStock).length
   return (
     <div className="fade-in">
-      <PageHeader eyebrow={low ? `${low} insumos con stock bajo` : 'Stock al día'} title="Inventario">
+      <PageHeader eyebrow={low ? `${low} insumos con stock bajo` : 'Existencias por insumo'} title="Inventario">
         {canManage && (
           <>
             <button className="btn btn-secondary" onClick={() => setDialog({ kind: 'item' })}><Plus size={16} aria-hidden />Nuevo insumo</button>
@@ -31,6 +31,8 @@ export function InventoryView({ data, canManage }: { data: Inventory; canManage:
           </>
         )}
       </PageHeader>
+
+      {children}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.6fr_1fr]">
         <section className="glass p-5">
@@ -100,7 +102,7 @@ export function InventoryView({ data, canManage }: { data: Inventory; canManage:
               </table>
             </div>
           )}
-          <p className="mt-3 text-xs text-muted">Al finalizar una atención se descuentan los insumos de la receta de cada tratamiento, primero del lote que vence antes.</p>
+          <p className="mt-3 text-xs text-muted">Al finalizar una atención se descuenta el stock disponible, primero del lote que vence antes. Las cantidades faltantes quedan pendientes de descontar.</p>
         </section>
 
         <section className="glass p-5">

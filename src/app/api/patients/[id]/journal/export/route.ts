@@ -2,6 +2,8 @@ import { journalAccess, journalFailure } from '@/server/journal'
 import { readPages } from '@/server/queries/read-pages'
 import { buildJournalPdf, type ExportSession } from '@/server/journal-pdf'
 import { z } from 'zod'
+import { clinicalReportContext } from '@/server/clinical-report'
+import { localDate } from '@/lib/domain/time'
 export const maxDuration = 60
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -67,7 +69,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .map((e) => ({
         id: e.id,
         title: e.chief_complaint ?? 'Atención anterior',
-        session_date: new Date(String(e.started_at)).toLocaleDateString('es-BO', { timeZone: 'America/La_Paz' }),
+        session_date: localDate(String(e.started_at)),
         legacy: true,
         notes: e.notes,
         author: (e.dentist as { full_name: string } | null)?.full_name ?? 'Equipo clínico',
@@ -79,7 +81,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         ? [{ id: 'legacy-files', title: 'Documentos previos sin sesión asignada', session_date: 'Archivo previo' }]
         : []),
     ]
-    const chosen = available.filter((s) => !selected || s.id === selected)
+    const chosen = available
+      .filter((s) => !selected || s.id === selected)
+      .sort((a, b) => String(a.session_date).localeCompare(String(b.session_date)) || String(a.id).localeCompare(String(b.id)))
     if (selected && !chosen.length) return Response.json({ error: 'Sesión no encontrada.' }, { status: 404 })
     const exportIds = new Set(chosen.map((s) => s.id))
     if (
@@ -116,7 +120,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         files: loaded,
       })
     }
-    const bytes = await buildJournalPdf(patient?.full_name ?? 'Paciente', out)
+    const context = await clinicalReportContext(db, id, access.clinicId)
+    const bytes = await buildJournalPdf(patient?.full_name ?? 'Paciente', out, context)
     const { error: auditError } = await db.rpc('log_event', {
       p_clinic: access.clinicId,
       p_action: 'clinical_history.export',

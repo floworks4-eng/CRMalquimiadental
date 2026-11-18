@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
+import { ClinicalAssessmentForm } from './clinical-assessment'
 import { SessionJournal } from './session-journal'
 import { dentalToothHistory, latestDentalFindings, type DentalStateEvent } from '@/lib/domain/dental'
 import type { ToothMark } from '../odontogram'
@@ -64,6 +65,7 @@ export function PatientClinicalView({
 
   return (
     <>
+      <ClinicalAssessmentForm key={`assessment-${patientId}`} patientId={patientId} />
       <SessionJournal key={patientId} patientId={patientId} patientName={patientName} data={data} />
 
       <section className="glass p-5">
