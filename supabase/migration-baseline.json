@@ -1,0 +1,115 @@
+{
+  "projectRef": "hjebrcdkkvysmqcyvcpb",
+  "checkedOn": "2026-11-24",
+  "sourceCommit": "36984103a9a0138a685b7282e4c6432e5955e2e7",
+  "migrations": [
+    {
+      "version": "0001",
+      "name": "extensions_enums"
+    },
+    {
+      "version": "0002",
+      "name": "clinic_identity"
+    },
+    {
+      "version": "0003",
+      "name": "schedule"
+    },
+    {
+      "version": "0004",
+      "name": "catalog"
+    },
+    {
+      "version": "0005",
+      "name": "patients_clinical"
+    },
+    {
+      "version": "0006",
+      "name": "rls_core"
+    },
+    {
+      "version": "0007",
+      "name": "audit"
+    },
+    {
+      "version": "0008",
+      "name": "storage"
+    },
+    {
+      "version": "0009",
+      "name": "invites"
+    },
+    {
+      "version": "0010",
+      "name": "agenda"
+    },
+    {
+      "version": "0011",
+      "name": "checkin_public"
+    },
+    {
+      "version": "0012",
+      "name": "public_book_cast"
+    },
+    {
+      "version": "0013",
+      "name": "staff_only"
+    },
+    {
+      "version": "0014",
+      "name": "consulta_caja_inventario"
+    },
+    {
+      "version": "0015",
+      "name": "setup"
+    },
+    {
+      "version": "0016",
+      "name": "lint_start_encounter"
+    },
+    {
+      "version": "0017",
+      "name": "historial_clinico"
+    },
+    {
+      "version": "20261031170420",
+      "name": "ocr_review_dataset"
+    },
+    {
+      "version": "20261031170917",
+      "name": "ocr_review_conflict_response"
+    },
+    {
+      "version": "20261031183325",
+      "name": "remove_ocr_htr_schema"
+    },
+    {
+      "version": "20261104194340",
+      "name": "dashboard_patient_analytics"
+    },
+    {
+      "version": "20261104201250",
+      "name": "dental_direct_editing"
+    },
+    {
+      "version": "20261104213950",
+      "name": "patient_tooth_odontogram"
+    },
+    {
+      "version": "20261104214305",
+      "name": "save_patient_tooth_state_rpc"
+    },
+    {
+      "version": "20261117002024",
+      "name": "clinical_session_journal"
+    },
+    {
+      "version": "20261118043917",
+      "name": "care_workflow"
+    },
+    {
+      "version": "20261118043919",
+      "name": "clinical_assessment_record"
+    }
+  ]
+}

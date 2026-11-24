@@ -20,3 +20,5 @@ supabase/.temp/
 .pytest_cache/
 output/pdf/
 tmp/
+.local-dev/
+.local-backups/

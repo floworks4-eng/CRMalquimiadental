@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "dev:db:start": "node scripts/dev-postgres.mjs start",
+    "dev:db:status": "node scripts/dev-postgres.mjs status",
+    "dev:db:reset": "node scripts/dev-postgres.mjs reset",
+    "dev:db:stop": "node scripts/dev-postgres.mjs stop",
+    "dev:db:migrations": "node scripts/dev-postgres.mjs migrations",
+    "dev:db:check": "node scripts/dev-postgres.mjs check",
     "assets:dental": "node scripts/prepare-dental-assets.mjs",
     "prebuild": "npm run assets:dental",
     "performance:report": "node scripts/performance-report.mjs",
